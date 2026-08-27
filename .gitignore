@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# ML artifacts
+ml/data/raw/*
+ml/data/processed/*
+ml/models/checkpoints/*.pt
+ml/models/checkpoints/*.pth
+!ml/data/raw/.gitkeep
+!ml/data/processed/.gitkeep
+!ml/models/checkpoints/.gitkeep
+
+# Node
+node_modules/
+dist/
+build/
+.env
+.env.local
+
+# Reports (generated, don't commit patient data)
+reports/generated/*
+!reports/generated/.gitkeep
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+*.pem
+*.key
