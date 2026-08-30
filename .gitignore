@@ -6,6 +6,10 @@ venv/
 *.egg-info/
 
 # ML artifacts
+Enhanced_dataset/
+phase1_output/
+phase1_test_output/
+model_dataset/
 ml/data/raw/*
 ml/data/processed/*
 ml/models/checkpoints/*.pt
@@ -29,6 +33,13 @@ reports/generated/*
 .DS_Store
 .vscode/
 .idea/
+
+# MATLAB generated/session files
+*.asv
+*.fig
+*.mat
+*.mlx
+*.slxc
 
 # Secrets
 *.pem
