@@ -1,0 +1,31 @@
+{
+  "dataset": "APTOS 2019",
+  "model": "ResNet-18",
+  "task": "Binary Diabetic Retinopathy Classification",
+  "test_images": 549,
+  "prediction": {
+    "positive_class": "Referable",
+    "negative_class": "Non_Referable"
+  },
+  "confusion_matrix": {
+    "true_positive": 175,
+    "true_negative": 320,
+    "false_positive": 6,
+    "false_negative": 48
+  },
+  "metrics": {
+    "accuracy": 0.90163934426229508,
+    "sensitivity": 0.7847533632286996,
+    "specificity": 0.98159509202453987,
+    "precision": 0.96685082872928174,
+    "f1_score": 0.86633663366336633
+  },
+  "metrics_percent": {
+    "accuracy": 90.1639344262295,
+    "sensitivity": 78.475336322869964,
+    "specificity": 98.159509202453989,
+    "precision": 96.685082872928177,
+    "f1_score": 86.633663366336634
+  },
+  "generated_at": "2026-09-01 06:53:21"
+}

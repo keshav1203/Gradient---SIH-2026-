@@ -17,6 +17,7 @@ ml/models/checkpoints/*.pth
 !ml/data/raw/.gitkeep
 !ml/data/processed/.gitkeep
 !ml/models/checkpoints/.gitkeep
+aptos_dataset/
 
 # Node
 node_modules/
@@ -40,6 +41,7 @@ reports/generated/*
 *.mat
 *.mlx
 *.slxc
+*.csv
 
 # Secrets
 *.pem
