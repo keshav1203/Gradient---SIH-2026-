@@ -1,0 +1,31 @@
+{
+  "status": "success",
+  "dataset": "APTOS 2019",
+  "model": "ResNet-18",
+  "task": "5-Class Diabetic Retinopathy Classification",
+  "image": {
+    "filename": "0ae2dd2e09ea.png",
+    "original_path": "C:\\Users\\Trisha Tyagi\\OneDrive\\Desktop\\Gradient---SIH-2026-\\aptos_dataset\\processed\\enhanced_images\\0ae2dd2e09ea.png"
+  },
+  "prediction": {
+    "class_id": 0,
+    "class_name": "No_DR",
+    "confidence": 0.991593838,
+    "confidence_percent": 99.1593857,
+    "class_probabilities": {
+      "No_DR": 0.99159383773803711,
+      "Mild": 0.0013043909566476941,
+      "Moderate": 0.0046522645279765129,
+      "Severe": 9.64037753874436E-5,
+      "Proliferative_DR": 0.0023530391044914722
+    }
+  },
+  "explainability": {
+    "method": "Grad-CAM",
+    "target_class": "No_DR",
+    "target_layer": "res5b_branch2b",
+    "heatmap": "C:\\Users\\Trisha Tyagi\\OneDrive\\Desktop\\Gradient---SIH-2026-\\reports\\generated\\aptos\\aptos5class\\inference\\0ae2dd2e09ea_heatmap.png",
+    "overlay": "C:\\Users\\Trisha Tyagi\\OneDrive\\Desktop\\Gradient---SIH-2026-\\reports\\generated\\aptos\\aptos5class\\inference\\0ae2dd2e09ea_gradcam.png"
+  },
+  "generated_at": "2026-09-01 21:27:42"
+}
