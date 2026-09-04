@@ -1,0 +1,21 @@
+# Core FastAPI Web Framework & Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Data Validation & Configuration Management
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+python-dotenv>=1.0.0
+
+# Database & ORM (PostgreSQL & SQLite)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+
+# Media & Retinal Image/Video Processing
+pillow>=10.0.0
+opencv-python-headless>=4.8.0
+
+# Testing & HTTP Client
+httpx>=0.27.0
+pytest>=8.0.0

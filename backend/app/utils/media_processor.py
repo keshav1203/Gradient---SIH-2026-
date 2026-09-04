@@ -4,7 +4,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"}
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 
 def is_video_file(file_path: Path) -> bool:

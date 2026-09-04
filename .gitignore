@@ -26,9 +26,21 @@ build/
 .env
 .env.local
 
+# Test cache
+.pytest_cache/
+
 # Reports (generated, don't commit patient data)
 reports/generated/*
 !reports/generated/.gitkeep
+backend/reports/generated/*
+!backend/reports/generated/.gitkeep
+
+# Uploads (runtime patient files)
+storage/uploads/*
+!storage/uploads/.gitkeep
+!storage/uploads/sample_fundus.png
+!storage/uploads/121ea2c74f18.jpg
+!storage/uploads/8195ccb98d83.tif
 
 # OS / editor
 .DS_Store

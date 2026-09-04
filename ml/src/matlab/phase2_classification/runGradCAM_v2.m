@@ -187,16 +187,93 @@ catch ME
 end
 
 %% ============================================================
+% 1 & 2. NORMALIZE HEATMAP TO [0, 1]
+% =============================================================
+
+map = double(scoreMap);
+map = map - min(map(:));
+if max(map(:)) > 0
+    map = map / max(map(:));
+end
+
+%% ============================================================
 % RESIZE HEATMAP
 % =============================================================
 
-scoreMap = imresize( ...
-    scoreMap, ...
+heatmap = imresize( ...
+    map, ...
     [size(originalImage,1), ...
      size(originalImage,2)]);
 
+heatmap = heatmap - min(heatmap(:));
+if max(heatmap(:)) > 0
+    heatmap = heatmap / max(heatmap(:));
+end
+
 %% ============================================================
-% CREATE OVERLAY
+% ENHANCE HEATMAP CONTRAST FOR VISUALIZATION
+% =============================================================
+% Grad-CAM maps are usually low-contrast: most pixels sit in a
+% narrow mid-range with only a small "hot" region near 1. Turbo's
+% vivid yellows/reds only kick in near the top of the range, so
+% a flat map barely shows any color. We stretch + gamma-correct a
+% SEPARATE copy (heatmapVis) used only for coloring/alpha, and
+% keep the original `heatmap` untouched for the raw output file.
+
+heatmapVis = heatmap;
+
+lowHigh = stretchlim(heatmapVis(:), [0.02 0.98]);
+heatmapVis = imadjust(heatmapVis, lowHigh, []);
+
+gammaHeatmap = 0.65;                 % <1 boosts mid-tones toward "hot"
+heatmapVis = heatmapVis .^ gammaHeatmap;
+heatmapVis = min(max(heatmapVis, 0), 1);
+
+%% ============================================================
+% 3 & 5. MANUAL cv2-style addWeighted BLEND (rescale & ind2rgb)
+% =============================================================
+
+cmap = turbo(256); % Vibrant Turbo colormap (high contrast against reddish fundus)
+heatIndices = round(rescale(heatmapVis, 1, 256));
+heatIndices = min(max(heatIndices, 1), 256);
+heatmapRGB = ind2rgb(heatIndices, cmap); % double RGB [0, 1]
+
+I_double = im2double(originalImage);
+if size(I_double, 3) == 1
+    I_double = repmat(I_double, 1, 1, 3);
+elseif size(I_double, 3) > 3
+    I_double = I_double(:,:,1:3);
+end
+
+% 4. Per-pixel alpha instead of one flat number for the whole image.
+% A constant alpha (old code) tinted EVERY pixel - including cold,
+% zero-activation background - with turbo's dark blue at 55%
+% opacity, which is what was washing the whole image out. Scaling
+% alpha by heatmapVis keeps cold areas close to the original photo
+% and gives hot areas strong, saturated color.
+minAlpha = 0.12;   % faint tint on low-activation background
+maxAlpha = 0.85;   % strong color on the hottest region
+alphaMap = minAlpha + (maxAlpha - minAlpha) * heatmapVis;
+
+manualOverlay = alphaMap .* heatmapRGB + (1 - alphaMap) .* I_double;
+manualOverlay = min(max(manualOverlay, 0), 1);
+
+%% ============================================================
+% 6. OPTIONAL SATURATION BOOST STEP (HSV S-channel boost)
+% =============================================================
+
+enableSaturationBoost = true; % Toggle for enhanced contrast on reddish retinal scans
+saturationMultiplier = 1.4;   % 1.3 - 1.5 boost multiplier
+
+if enableSaturationBoost
+    hsvOverlay = rgb2hsv(manualOverlay);
+    hsvOverlay(:,:,2) = min(hsvOverlay(:,:,2) * saturationMultiplier, 1.0); % Boost S channel, clip to 1
+    manualOverlay = hsv2rgb(hsvOverlay);
+    manualOverlay = min(max(manualOverlay, 0), 1);
+end
+
+%% ============================================================
+% CREATE OVERLAY FIGURE (imagesc with AlphaData)
 % =============================================================
 
 figure('Visible','off');
@@ -205,15 +282,14 @@ imshow(originalImage);
 
 hold on;
 
-imagesc(scoreMap);
+hImg = imagesc(heatmapVis);
+set(hImg, 'AlphaData', alphaMap); % per-pixel alpha, not a flat 0.55
 
 axis image off;
 
-colormap jet;
+colormap turbo; % Replaced 'jet' with 'turbo'
 
 colorbar;
-
-alpha(0.45);
 
 title(sprintf( ...
     'APTOS ResNet-18 | %s | %.2f%%', ...
@@ -236,6 +312,12 @@ exportgraphics( ...
 
 close(gcf);
 
+% Save direct cv2-style blended overlay
+directOverlayFile = fullfile( ...
+    reportFolder, ...
+    [baseName '_direct_overlay.png']);
+imwrite(manualOverlay, directOverlayFile);
+
 %% ============================================================
 % SAVE RAW HEATMAP
 % =============================================================
@@ -246,11 +328,11 @@ heatmapFile = fullfile( ...
 
 figure('Visible','off');
 
-imagesc(scoreMap);
+imagesc(heatmap);
 
 axis image off;
 
-colormap jet;
+colormap turbo;
 
 colorbar;
 

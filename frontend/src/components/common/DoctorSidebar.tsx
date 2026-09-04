@@ -18,7 +18,7 @@ export const DoctorSidebar: React.FC<DoctorSidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', labelHi: 'डैशबोर्ड', icon: 'dashboard' },
     { id: 'patient-queue', label: 'Patient Queue', labelHi: 'मरीज कतार', icon: 'group' },
     { id: 'upload-images', label: 'Upload Images', labelHi: 'चित्र अपलोड', icon: 'cloud_upload' },
-    { id: 'ai-analysis', label: 'AI Analysis', labelHi: 'एआई विश्लेषण', icon: 'psychology' },
+    { id: 'approve-reports', label: 'Approve Report', labelHi: 'रिपोर्ट अनुमोदन', icon: 'fact_check' },
     { id: 'reports', label: 'Reports', labelHi: 'रिपोर्ट्स', icon: 'description' },
   ];
 

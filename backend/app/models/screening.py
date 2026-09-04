@@ -33,6 +33,11 @@ class Screening(Base):
     target_layer = Column(String(100), nullable=False)
     heatmap_path = Column(String(500), nullable=False)
     overlay_path = Column(String(500), nullable=False)
+
+    review_status = Column(String(50), nullable=False, default="pending") # verified, pending, review_required
+    review_notes = Column(String(1000), nullable=True)
+    verified_by = Column(String(100), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
     
     raw_ai_output = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

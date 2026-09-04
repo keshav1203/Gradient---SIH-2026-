@@ -13,7 +13,7 @@ function [score, rawVar] = calcBlurScore(I, mask)
     response = imfilter(gray, lap, 'replicate');
     rawVar = var(response(mask));
 
-    threshLow  = 0.00005;   % near-uniform response -> very blurry
-    threshHigh = 0.0015;    % strong edge response -> sharp
+    threshLow  = 0.00001;   % near-uniform response -> very blurry
+    threshHigh = 0.0008;    % strong edge response -> sharp
     score = min(max((rawVar - threshLow) / (threshHigh - threshLow), 0), 1);
 end

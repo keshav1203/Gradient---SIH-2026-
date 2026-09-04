@@ -5,7 +5,11 @@ from backend.app.schemas.screening import (
     ExplainabilityInfo,
     AIPredictionOutput,
     ScreeningCreate,
-    ScreeningResponse
+    ScreeningResponse,
+    ClinicianReviewIn,
+    ClinicianReviewOut,
+    DashboardMetricsOut,
+    QualityAssessmentInfo
 )
 
 __all__ = [
@@ -18,5 +22,9 @@ __all__ = [
     "ExplainabilityInfo",
     "AIPredictionOutput",
     "ScreeningCreate",
-    "ScreeningResponse"
+    "ScreeningResponse",
+    "ClinicianReviewIn",
+    "ClinicianReviewOut",
+    "DashboardMetricsOut",
+    "QualityAssessmentInfo"
 ]

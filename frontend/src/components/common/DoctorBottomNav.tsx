@@ -9,7 +9,7 @@ export const DoctorBottomNav: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', labelHi: 'डैशबोर्ड', icon: 'dashboard' },
     { id: 'patient-queue', label: 'Queue', labelHi: 'कतार', icon: 'group' },
     { id: 'upload-images', label: 'Screening', labelHi: 'स्क्रीनिंग', icon: 'cloud_upload' },
-    { id: 'ai-analysis', label: 'AI Results', labelHi: 'एआई', icon: 'psychology' },
+    { id: 'approve-reports', label: 'Approve', labelHi: 'अनुमोदन', icon: 'fact_check' },
     { id: 'reports', label: 'Reports', labelHi: 'रिपोर्ट', icon: 'description' },
   ];
 

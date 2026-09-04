@@ -16,9 +16,8 @@ function process_doctor_upload(filePath, outputFolder, frameStep, windowSeconds)
 %       frameStep, windowSeconds - video-only settings (see
 %                       process_video_for_prediction.m); ignored for images
 %
-%   Requires all the core function files + process_single_image_for_
-%   prediction.m + process_video_for_prediction.m +
-%   create_quality_review_montage.m on the MATLAB path.
+%   Requires all the core function files + runAPTOSInferenceBackend.m +
+%   process_video_for_prediction.m + create_quality_review_montage.m on the MATLAB path.
 
     if nargin < 3, frameStep = []; end
     if nargin < 4, windowSeconds = []; end
@@ -31,7 +30,7 @@ function process_doctor_upload(filePath, outputFolder, frameStep, windowSeconds)
 
     if any(strcmp(ext, imageExts))
         fprintf('Detected IMAGE upload: %s\n', filePath);
-        process_single_image_for_prediction(filePath, outputFolder);
+        runAPTOSInferenceBackend(filePath, outputFolder);
     elseif any(strcmp(ext, videoExts))
         fprintf('Detected VIDEO upload: %s\n', filePath);
         process_video_for_prediction(filePath, outputFolder, frameStep, windowSeconds);

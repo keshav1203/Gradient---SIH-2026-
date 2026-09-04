@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { PortalMode, DoctorTab, PatientTab, Language, ScreeningRecord } from '../types';
 import { INITIAL_SCREENINGS } from '../data/mockData';
+import { apiService } from '../services/apiService';
 
 interface PortalContextType {
   portal: PortalMode;
@@ -32,6 +33,7 @@ interface PortalContextType {
   setIsExplainModalOpen: (open: boolean) => void;
   
   // Navigation helpers
+  navigateToApproveReport: (screeningId?: string) => void;
   navigateToAiAnalysis: (screeningId?: string) => void;
   navigateToNewScreening: () => void;
   navigateToPatientReport: (screeningId?: string) => void;
@@ -65,11 +67,32 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast(nextLang === 'hi' ? 'भाषा बदलकर हिन्दी की गई' : 'Language switched to English');
   };
 
+  const syncScreeningSelection = (screeningId: string) => {
+    setSelectedScreeningId(screeningId);
+    if (currentScreening && currentScreening.id === screeningId) {
+      return;
+    }
+    const found = INITIAL_SCREENINGS.find(s => s.id === screeningId);
+    if (found) {
+      setCurrentScreening(found);
+    } else {
+      apiService.getScreeningById(screeningId).then(res => {
+        if (res) setCurrentScreening(res);
+      }).catch(() => {});
+    }
+  };
+
+  const navigateToApproveReport = (screeningId?: string) => {
+    if (screeningId) {
+      syncScreeningSelection(screeningId);
+    }
+    setPortal('doctor');
+    setDoctorTab('approve-reports');
+  };
+
   const navigateToAiAnalysis = (screeningId?: string) => {
     if (screeningId) {
-      setSelectedScreeningId(screeningId);
-      const found = INITIAL_SCREENINGS.find(s => s.id === screeningId);
-      if (found) setCurrentScreening(found);
+      syncScreeningSelection(screeningId);
     }
     setPortal('doctor');
     setDoctorTab('ai-analysis');
@@ -82,9 +105,7 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const navigateToPatientReport = (screeningId?: string) => {
     if (screeningId) {
-      setSelectedScreeningId(screeningId);
-      const found = INITIAL_SCREENINGS.find(s => s.id === screeningId);
-      if (found) setCurrentScreening(found);
+      syncScreeningSelection(screeningId);
     }
     setPortal('patient');
     setPatientTab('my-results');
@@ -114,6 +135,7 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsTeleconsultModalOpen,
         isExplainModalOpen,
         setIsExplainModalOpen,
+        navigateToApproveReport,
         navigateToAiAnalysis,
         navigateToNewScreening,
         navigateToPatientReport,

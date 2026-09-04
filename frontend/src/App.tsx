@@ -14,6 +14,7 @@ import { ExplainResultModal } from './components/common/ExplainResultModal';
 import { ClinicianDashboardView } from './components/doctor/ClinicianDashboardView';
 import { PatientQueueView } from './components/doctor/PatientQueueView';
 import { NewScreeningView } from './components/doctor/NewScreeningView';
+import { ApproveReportsView } from './components/doctor/ApproveReportsView';
 import { AiAnalysisView } from './components/doctor/AiAnalysisView';
 import { ReportsView } from './components/doctor/ReportsView';
 
@@ -47,12 +48,13 @@ const AppContent: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 min-w-0 md:pl-64 pt-[74px] pb-24 md:pb-12 px-container-margin md:px-stack-lg transition-all">
+        <main className="flex-1 min-w-0 md:ml-64 pt-20 pb-24 md:pb-12 px-4 sm:px-6 md:px-8 transition-all">
           {portal === 'doctor' ? (
             <>
               {doctorTab === 'dashboard' && <ClinicianDashboardView />}
               {doctorTab === 'patient-queue' && <PatientQueueView />}
               {doctorTab === 'upload-images' && <NewScreeningView />}
+              {doctorTab === 'approve-reports' && <ApproveReportsView />}
               {doctorTab === 'ai-analysis' && <AiAnalysisView />}
               {doctorTab === 'reports' && <ReportsView />}
               {doctorTab === 'help' && <ClinicianDashboardView />}

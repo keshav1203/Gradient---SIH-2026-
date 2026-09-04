@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from backend.app.api.deps import get_db_session
 from backend.app.schemas.patient import PatientCreate, PatientOut, PatientUpdate
 from backend.app.services.patient_service import (
-    create_patient, get_patient_by_id, list_patients
+    create_patient, get_patient_by_id, list_patients, delete_patient
 )
 
 router = APIRouter(prefix="/patients", tags=["Patients"])
@@ -33,3 +33,14 @@ def read_patient(patient_id: str, db: Session = Depends(get_db_session)):
             detail=f"Patient with ID '{patient_id}' not found."
         )
     return patient
+
+@router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_patient(patient_id: str, db: Session = Depends(get_db_session)):
+    success = delete_patient(db, patient_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient with ID '{patient_id}' not found."
+        )
+    return None
+

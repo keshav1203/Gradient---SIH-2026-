@@ -4,10 +4,11 @@ export type DoctorTab =
   | 'dashboard'
   | 'patient-queue'
   | 'upload-images'
-  | 'ai-analysis'
+  | 'approve-reports'
   | 'reports'
   | 'help'
-  | 'settings';
+  | 'settings'
+  | 'ai-analysis';
 
 export type PatientTab = 
   | 'home'
@@ -21,12 +22,64 @@ export type RiskLevel = 'high' | 'medium' | 'low' | 'normal';
 export type ReviewStatus = 'verified' | 'pending' | 'review_required' | 'processing';
 export type ImageQualityStatus = 'acceptable' | 'marginal' | 'insufficient';
 
+export type WorkflowStageId = 
+  | 'quality'
+  | 'enhancement'
+  | 'analysis'
+  | 'classification'
+  | 'explainability'
+  | 'report';
+
+export type WorkflowStageStatus = 'waiting' | 'processing' | 'completed' | 'failed';
+
+export interface WorkflowStage {
+  id: WorkflowStageId;
+  name: string;
+  nameHi: string;
+  status: WorkflowStageStatus;
+  detail?: string;
+}
+
+export interface DetailedQualityMetrics {
+  overall: 'GOOD' | 'MARGINAL' | 'INSUFFICIENT';
+  score: number; // e.g. 91
+  focus: 'Good' | 'Fair' | 'Poor';
+  illumination: 'Good' | 'Fair' | 'Poor';
+  fieldOfView: 'Good' | 'Fair' | 'Poor';
+  contrast: 'Good' | 'Fair' | 'Poor';
+  ungradableReason?: string;
+  recommendation?: string;
+}
+
+export interface QualityAssessmentResult {
+  status: 'success' | 'rejected' | 'error';
+  decision: 'Good' | 'Borderline' | 'Poor';
+  score: number;
+  isAcceptable: boolean;
+  blurScore: number;
+  illuminationScore: number;
+  contrastScore: number;
+  fovScore: number;
+  rejectionReasons: string[];
+  recommendation?: string;
+  error?: string;
+  imageUrl?: string;
+}
+
+export interface LesionFindings {
+  microaneurysms: 'Detected' | 'Not detected';
+  hemorrhages: 'Detected' | 'Not detected';
+  exudates: 'Detected' | 'Not detected';
+  neovascularization: 'Detected' | 'Not detected';
+}
+
 export interface QualityMetrics {
   clarity: number; // percentage (e.g. 94)
   exposure: 'Optimal' | 'Underexposed' | 'Overexposed';
   resolution: '2K' | '1080p' | 'Low';
   blurScore: number; // percentage (e.g. 12)
   isAcceptable: boolean;
+  detailed?: DetailedQualityMetrics;
 }
 
 export interface AiDiagnosticResult {
@@ -35,13 +88,20 @@ export interface AiDiagnosticResult {
   severity: string;
   severityHi: string;
   confidence: number; // e.g. 94
-  grade: number; // e.g. 2 for Grade 2 Moderate NPDR
+  grade: number; // 0 to 4
   riskLevel: RiskLevel;
+  isReferable: boolean;
   maculaAlert: boolean;
   maculaAlertDesc: string;
   maculaAlertDescHi: string;
   recommendation: string;
   recommendationHi: string;
+  lesions: LesionFindings;
+  classProbabilities?: Record<string, number>;
+  modelName?: string;
+  targetLayer?: string;
+  dynamicOpacity?: number;
+  retinaMasked?: boolean;
 }
 
 export interface ClinicianReview {
@@ -62,6 +122,11 @@ export interface ScreeningRecord {
   dob: string;
   screeningDate: string;
   eye: 'Left Eye (OS)' | 'Right Eye (OD)' | 'Both Eyes';
+  mediaType?: 'image' | 'video';
+  status?: 'success' | 'rejected' | 'error';
+  rejectionReason?: string;
+  errorDetail?: string;
+  recommendation?: string;
   fundusCameraModel: string;
   quality: ImageQualityStatus;
   qualityMetrics: QualityMetrics;
@@ -69,7 +134,10 @@ export interface ScreeningRecord {
   review: ClinicianReview;
   images: {
     original: string;
+    enhanced?: string;
     heatmap: string;
+    overlay?: string;
+    lesionOverlay?: string;
     rightEyeOriginal?: string;
     rightEyeHeatmap?: string;
   };
@@ -107,4 +175,11 @@ export interface Appointment {
   time: string;
   type: 'Teleconsultation' | 'In-Person Examination';
   status: 'Confirmed' | 'Pending' | 'Completed';
+}
+
+export interface AssistantMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
 }

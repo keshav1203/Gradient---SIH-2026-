@@ -14,10 +14,12 @@ def health_check(db: Session = Depends(get_db_session)):
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
 
-    matlab_status = "available" if matlab_service.is_matlab_available() else "fallback_mode (Python Engine)"
+    matlab_status = "available" if matlab_service.is_matlab_available() else "unavailable"
+    model_info = matlab_service.get_model_info()
 
     return {
         "status": "ok",
         "database": db_status,
-        "matlab_engine": matlab_status
+        "matlab_engine": matlab_status,
+        "model": model_info
     }

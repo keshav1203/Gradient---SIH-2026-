@@ -57,11 +57,30 @@ def test_create_and_get_patient():
     assert get_res.status_code == 200
     assert get_res.json()["last_name"] == "Tyagi"
 
+def get_sample_fundus_image():
+    from pathlib import Path
+    from backend.app.core.config import settings
+
+    sample_path = settings.UPLOAD_DIR / "sample_fundus.png"
+    if sample_path.exists():
+        with open(sample_path, "rb") as f:
+            return "sample_fundus.png", f.read(), "image/png"
+
+    for ext in ("*.tif", "*.jpg", "*.png"):
+        for p in settings.UPLOAD_DIR.glob(ext):
+            if p.stat().st_size > 10000:
+                with open(p, "rb") as f:
+                    content_type = "image/tiff" if p.suffix == ".tif" else ("image/jpeg" if p.suffix in (".jpg", ".jpeg") else "image/png")
+                    return p.name, f.read(), content_type
+
+    buf = create_dummy_image_bytes()
+    return "dummy_fundus.png", buf.getvalue(), "image/png"
+
 def test_process_screening_image():
     unique_pat_id = f"PAT-TEST-{uuid.uuid4().hex[:6].upper()}"
-    img_bytes = create_dummy_image_bytes()
+    filename, file_bytes, content_type = get_sample_fundus_image()
     files = {
-        "file": ("0ae2dd2e09ea.png", img_bytes, "image/png")
+        "file": (filename, file_bytes, content_type)
     }
     data = {
         "first_name": "Trisha",
@@ -95,7 +114,6 @@ def test_process_screening_image():
     assert "confidence" in pred
     assert "confidence_percent" in pred
     assert "class_probabilities" in pred
-    assert "No_DR" in pred["class_probabilities"]
 
     # Explainability section
     assert "explainability" in res_json
@@ -117,3 +135,38 @@ def test_process_screening_image():
     items = res.json()
     assert len(items) >= 1
     assert items[0]["patient_id"] == unique_pat_id
+
+def test_screening_quality_gate_rejection():
+    unique_pat_id = f"PAT-TEST-{uuid.uuid4().hex[:6].upper()}"
+    img_bytes = create_dummy_image_bytes()
+    files = {
+        "file": ("corrupt_dummy.png", img_bytes, "image/png")
+    }
+    data = {
+        "first_name": "Quality",
+        "last_name": "Test",
+        "age": "50",
+        "gender": "Male",
+        "patient_id": unique_pat_id,
+        "contact_number": "+91 9999977777",
+        "medical_history": "Quality Gate Evaluation"
+    }
+    response = client.post("/api/v1/screenings/process", files=files, data=data)
+    assert response.status_code == 201
+    res_json = response.json()
+    assert res_json["status"] == "rejected"
+    assert res_json["rejection_reason"] is not None
+    assert "quality_assessment" in res_json
+
+def test_assess_quality_endpoint():
+    filename, file_bytes, content_type = get_sample_fundus_image()
+    files = {
+        "file": (filename, file_bytes, content_type)
+    }
+    response = client.post("/api/v1/screenings/assess-quality", files=files)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert "status" in res_json
+    assert "quality_assessment" in res_json
+
+

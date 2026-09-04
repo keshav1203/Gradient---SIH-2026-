@@ -321,21 +321,13 @@ catch
 end
 
 %% ============================================================
-% NORMALIZE HEATMAP
+% 1 & 2. NORMALIZE HEATMAP TO [0, 1]
 % ============================================================
 
-scoreMap = double(scoreMap);
-
-scoreMap = ...
-    scoreMap - min(scoreMap(:));
-
-maxScore = max(scoreMap(:));
-
-if maxScore > 0
-
-    scoreMap = ...
-        scoreMap ./ maxScore;
-
+map = double(scoreMap);
+map = map - min(map(:));
+if max(map(:)) > 0
+    map = map / max(map(:));
 end
 
 %% ============================================================
@@ -343,8 +335,51 @@ end
 % ============================================================
 
 heatmap = imresize( ...
-    scoreMap, ...
+    map, ...
     [size(I,1),size(I,2)]);
+
+heatmap = heatmap - min(heatmap(:));
+if max(heatmap(:)) > 0
+    heatmap = heatmap / max(heatmap(:));
+end
+
+%% ============================================================
+% 3 & 5. MANUAL cv2-style addWeighted BLEND (rescale & ind2rgb)
+% ============================================================
+
+cmap = turbo(256); % Vibrant Turbo colormap (high contrast against reddish fundus)
+heatIndices = round(rescale(heatmap, 1, 256));
+heatIndices = min(max(heatIndices, 1), 256);
+heatmapRGB = ind2rgb(heatIndices, cmap); % double RGB [0, 1]
+
+I_double = im2double(I);
+if size(I_double, 3) == 1
+    I_double = repmat(I_double, 1, 1, 3);
+elseif size(I_double, 3) > 3
+    I_double = I_double(:,:,1:3);
+% 4. Smooth Gaussian feathered alpha falloff curve.
+maxAlpha = 0.75;
+alphaMap = maxAlpha * (1.0 - exp(-(heatmapVis / 0.35).^2));
+
+manualOverlay = zeros(size(I_double));
+for c = 1:3
+    manualOverlay(:,:,c) = alphaMap .* heatmapRGB(:,:,c) + (1.0 - alphaMap) .* I_double(:,:,c);
+end
+manualOverlay = min(max(manualOverlay, 0), 1);
+
+%% ============================================================
+% 6. OPTIONAL SATURATION BOOST STEP (HSV S-channel boost)
+% ============================================================
+
+enableSaturationBoost = true; % Toggle for enhanced contrast on reddish retinal scans
+saturationMultiplier = 1.35;  % 1.3 - 1.4 boost multiplier
+
+if enableSaturationBoost
+    hsvOverlay = rgb2hsv(manualOverlay);
+    hsvOverlay(:,:,2) = min(hsvOverlay(:,:,2) * saturationMultiplier, 1.0); % Boost S channel, clip to 1
+    manualOverlay = hsv2rgb(hsvOverlay);
+    manualOverlay = min(max(manualOverlay, 0), 1);
+end
 
 %% ============================================================
 % SAVE RAW HEATMAP
@@ -367,7 +402,7 @@ fprintf('\nHeatmap saved:\n');
 fprintf('%s\n',heatmapFile);
 
 %% ============================================================
-% CREATE OVERLAY
+% CREATE OVERLAY FIGURE (imagesc with AlphaData)
 % ============================================================
 
 fprintf('\nCreating Grad-CAM overlay...\n');
@@ -379,15 +414,16 @@ imshow(I);
 
 hold on;
 
-imagesc(heatmap);
+hImg = imagesc(heatmap);
+set(hImg, 'AlphaData', 0.55); % AlphaData in 0.5 - 0.6 range
 
 axis image off;
 
-colormap jet;
+colormap turbo; % Replaced 'jet' with 'turbo'
 
 colorbar;
 
-alpha(0.45);
+alpha(0.55); % Increased alpha to 0.55
 
 title( ...
     sprintf( ...
@@ -409,6 +445,12 @@ exportgraphics( ...
     gradcamFile);
 
 close(gcf);
+
+% Save direct cv2-style blended overlay
+directOverlayFile = fullfile( ...
+    reportFolder, ...
+    [baseName '_direct_overlay.png']);
+imwrite(manualOverlay, directOverlayFile);
 
 fprintf('\nGrad-CAM overlay saved:\n');
 fprintf('%s\n',gradcamFile);

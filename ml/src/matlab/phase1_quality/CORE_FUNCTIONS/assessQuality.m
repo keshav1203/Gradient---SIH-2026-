@@ -1,6 +1,9 @@
 function q = assessQuality(I, mask)
 % Combines blur/illumination/contrast/FOV metrics into an overall score
 % and a Good / Borderline / Poor decision.
+    if ~isa(I, 'double')
+        I = im2double(I);
+    end
     [blurScore, blurRaw]      = calcBlurScore(I, mask);
     [illumScore, meanI, unif] = calcIlluminationScore(I, mask);
     [contrastScore, rmsC]     = calcContrastScore(I, mask);

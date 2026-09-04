@@ -114,3 +114,43 @@ input[type='range']::-webkit-slider-runnable-track {
 input[type='range']:focus {
   outline: none;
 }
+
+/* Print Styles for Clinical Reports */
+@media print {
+  nav,
+  aside,
+  header,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    color: #1a1c1d !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #printable-report {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #1a1c1d !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

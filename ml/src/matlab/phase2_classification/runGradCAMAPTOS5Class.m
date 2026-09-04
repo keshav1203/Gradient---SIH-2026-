@@ -308,18 +308,13 @@ catch ME
 end
 
 %% ============================================================
-% NORMALIZE HEATMAP
+% 1 & 2. NORMALIZE HEATMAP TO [0, 1]
 % ============================================================
 
-scoreMap = double(scoreMap);
-
-scoreMap = scoreMap - min(scoreMap(:));
-
-if max(scoreMap(:)) > 0
-
-    scoreMap = ...
-        scoreMap ./ max(scoreMap(:));
-
+map = double(scoreMap);
+map = map - min(map(:));
+if max(map(:)) > 0
+    map = map / max(map(:));
 end
 
 %% ============================================================
@@ -327,11 +322,74 @@ end
 % =============================================================
 
 heatmap = imresize( ...
-    scoreMap, ...
+    map, ...
     [size(I,1), size(I,2)]);
 
+heatmap = heatmap - min(heatmap(:));
+if max(heatmap(:)) > 0
+    heatmap = heatmap / max(heatmap(:));
+end
+
 %% ============================================================
-% CREATE GRAD-CAM OVERLAY
+% ENHANCE HEATMAP CONTRAST FOR VISUALIZATION
+% ============================================================
+% Grad-CAM maps are usually low-contrast: most pixels sit in a
+% narrow mid-range with only a small "hot" region near 1. Turbo's
+% vivid yellows/reds only kick in near the top of the range, so
+% a flat map barely shows any color. We stretch + gamma-correct a
+% SEPARATE copy (heatmapVis) used only for coloring/alpha, and
+% keep the original `heatmap` untouched for the raw output file.
+
+heatmapVis = heatmap;
+
+lowHigh = stretchlim(heatmapVis(:), [0.02 0.98]);
+heatmapVis = imadjust(heatmapVis, lowHigh, []);
+
+gammaHeatmap = 0.65;                 % <1 boosts mid-tones toward "hot"
+heatmapVis = heatmapVis .^ gammaHeatmap;
+heatmapVis = min(max(heatmapVis, 0), 1);
+
+%% ============================================================
+% 3 & 5. MANUAL cv2-style addWeighted BLEND (rescale & ind2rgb)
+% ============================================================
+
+cmap = turbo(256); % Vibrant Turbo colormap (high contrast against reddish fundus)
+heatIndices = round(rescale(heatmapVis, 1, 256));
+heatIndices = min(max(heatIndices, 1), 256);
+heatmapRGB = ind2rgb(heatIndices, cmap); % double RGB [0, 1]
+
+I_double = im2double(I);
+if size(I_double, 3) == 1
+    I_double = repmat(I_double, 1, 1, 3);
+elseif size(I_double, 3) > 3
+    I_double = I_double(:,:,1:3);
+end
+
+% 4. Smooth Gaussian feathered alpha falloff curve.
+% Feathered Gaussian falloff ensures the boundary/edge of the heatmap
+% dissolves seamlessly into the background fundus photo without artificial border lines.
+maxAlpha = 0.75;
+alphaMap = maxAlpha * (1.0 - exp(-(heatmapVis / 0.35).^2));
+
+manualOverlay = alphaMap .* heatmapRGB + (1.0 - alphaMap) .* I_double;
+manualOverlay = min(max(manualOverlay, 0), 1);
+
+%% ============================================================
+% 6. OPTIONAL SATURATION BOOST STEP (HSV S-channel boost)
+% ============================================================
+
+enableSaturationBoost = true; % Toggle for enhanced contrast on reddish retinal scans
+saturationMultiplier = 1.4;   % 1.3 - 1.5 boost multiplier
+
+if enableSaturationBoost
+    hsvOverlay = rgb2hsv(manualOverlay);
+    hsvOverlay(:,:,2) = min(hsvOverlay(:,:,2) * saturationMultiplier, 1.0); % Boost S channel, clip to 1
+    manualOverlay = hsv2rgb(hsvOverlay);
+    manualOverlay = min(max(manualOverlay, 0), 1);
+end
+
+%% ============================================================
+% CREATE GRAD-CAM OVERLAY FIGURE (imagesc with AlphaData)
 % ============================================================
 
 fprintf('\nCreating Grad-CAM overlay...\n');
@@ -343,15 +401,14 @@ imshow(I);
 
 hold on;
 
-imagesc(heatmap);
+hImg = imagesc(heatmapVis);
+set(hImg, 'AlphaData', alphaMap); % per-pixel alpha, not a flat 0.55
 
 axis image off;
 
-colormap jet;
+colormap turbo; % Replaced 'jet' with 'turbo'
 
 colorbar;
-
-alpha(0.45);
 
 title( ...
     sprintf( ...
@@ -375,6 +432,12 @@ exportgraphics( ...
     gradcamImageFile);
 
 close(gcf);
+
+% Save direct cv2-style blended overlay
+directOverlayFile = fullfile( ...
+    reportFolder, ...
+    [baseName '_direct_overlay.png']);
+imwrite(manualOverlay, directOverlayFile);
 
 fprintf('\nGrad-CAM image saved:\n');
 fprintf('%s\n',gradcamImageFile);
