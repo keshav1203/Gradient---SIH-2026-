@@ -18,9 +18,8 @@ try:
     with engine.connect() as conn:
         pass
 except Exception as e:
-    logger.warning(f"Could not connect to PostgreSQL database ({database_url}). Falling back to SQLite for local session: {e}")
-    sqlite_fallback_url = f"sqlite:///{settings.STORAGE_DIR}/dr_screening_fallback.db"
-    engine = create_engine(sqlite_fallback_url, connect_args={"check_same_thread": False})
+    logger.error(f"Could not connect to database ({database_url}): {e}")
+    raise
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
