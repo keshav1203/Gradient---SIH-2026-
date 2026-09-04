@@ -12,8 +12,8 @@ phase1_test_output/
 model_dataset/
 ml/data/raw/*
 ml/data/processed/*
-ml/models/checkpoints/*.pt
-ml/models/checkpoints/*.pth
+# ml/models/checkpoints/*.pt
+# ml/models/checkpoints/*.pth
 !ml/data/raw/.gitkeep
 !ml/data/processed/.gitkeep
 !ml/models/checkpoints/.gitkeep
