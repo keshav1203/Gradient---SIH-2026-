@@ -38,7 +38,7 @@ reports/generated/*
 # MATLAB generated/session files
 *.asv
 *.fig
-*.mat
+# *.mat
 *.mlx
 *.slxc
 *.csv
