@@ -9,6 +9,7 @@ import { Toast } from './components/common/Toast';
 import { AddPatientModal } from './components/common/AddPatientModal';
 import { TeleconsultModal } from './components/common/TeleconsultModal';
 import { ExplainResultModal } from './components/common/ExplainResultModal';
+import { SimpleLoginView } from './components/common/SimpleLoginView';
 
 // Doctor Views
 import { ClinicianDashboardView } from './components/doctor/ClinicianDashboardView';
@@ -26,6 +27,11 @@ import { PatientProfileView } from './components/patient/PatientProfileView';
 const AppContent: React.FC = () => {
   const { portal, doctorTab, patientTab } = usePortal();
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  if (!isLoggedIn) {
+    return <SimpleLoginView onLogin={() => setIsLoggedIn(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-background text-on-background flex flex-col antialiased">
