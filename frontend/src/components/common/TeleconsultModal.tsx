@@ -4,21 +4,22 @@ import { apiService } from '../../services/apiService';
 import { DOCTOR_PROFILE } from '../../data/mockData';
 
 export const TeleconsultModal: React.FC = () => {
-  const { isTeleconsultModalOpen, setIsTeleconsultModalOpen, showToast, language } = usePortal();
+  const { isTeleconsultModalOpen, setIsTeleconsultModalOpen, showToast, language, currentScreening } = usePortal();
   const [selectedDate, setSelectedDate] = useState('Tomorrow, Sep 02');
   const [selectedSlot, setSelectedSlot] = useState('11:00 AM');
   const [isBooking, setIsBooking] = useState(false);
 
   if (!isTeleconsultModalOpen) return null;
 
+  const doctorName = currentScreening?.review?.verifiedBy || DOCTOR_PROFILE.name;
   const dates = ['Today, 04:30 PM', 'Tomorrow, 11:00 AM', 'Thursday, 02:00 PM', 'Friday, 10:00 AM'];
   const slots = ['10:00 AM', '11:00 AM', '02:30 PM', '04:00 PM', '05:30 PM'];
 
   const handleBooking = async () => {
     setIsBooking(true);
     try {
-      await apiService.bookTeleconsultation('PT-8924', selectedDate, selectedSlot);
-      showToast(language === 'hi' ? 'टेली-परामर्श सफलतापूर्वक बुक किया गया!' : 'Teleconsultation booked successfully with Dr. Anita!');
+      await apiService.bookTeleconsultation('PT-8924', selectedDate, selectedSlot, doctorName);
+      showToast(language === 'hi' ? 'टेली-परामर्श सफलतापूर्वक बुक किया गया!' : `Teleconsultation booked successfully with ${doctorName}!`);
       setIsTeleconsultModalOpen(false);
     } catch {
       showToast('Booking failed. Please try again.');
@@ -62,7 +63,7 @@ export const TeleconsultModal: React.FC = () => {
             className="w-12 h-12 rounded-full object-cover border-2 border-primary-container"
           />
           <div>
-            <h4 className="text-sm font-bold text-primary">{DOCTOR_PROFILE.name}</h4>
+            <h4 className="text-sm font-bold text-primary">{doctorName}</h4>
             <p className="text-xs text-on-surface-variant">{DOCTOR_PROFILE.title} · {DOCTOR_PROFILE.hospital}</p>
             <span className="inline-flex items-center gap-1 text-[11px] text-[#2E7D32] mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32]"></span>

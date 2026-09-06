@@ -12,7 +12,11 @@ export const DoctorSidebar: React.FC<DoctorSidebarProps> = ({
   isMobileDrawerOpen = false,
   onCloseMobileDrawer,
 }) => {
-  const { doctorTab, setDoctorTab, navigateToNewScreening, showToast, language } = usePortal();
+  const { doctorTab, setDoctorTab, navigateToNewScreening, showToast, language, currentUser, logout } = usePortal();
+
+  const doctorName = currentUser?.doctor?.name || DOCTOR_PROFILE.name;
+  const doctorId = currentUser?.doctor?.doctorId || 'DOC-ANITA';
+  const doctorHospital = currentUser?.doctor?.hospital || DOCTOR_PROFILE.hospital;
 
   const navItems: { id: DoctorTab; label: string; labelHi: string; icon: string }[] = [
     { id: 'dashboard', label: 'Dashboard', labelHi: 'डैशबोर्ड', icon: 'dashboard' },
@@ -31,19 +35,18 @@ export const DoctorSidebar: React.FC<DoctorSidebarProps> = ({
     <div className="flex flex-col h-full p-stack-md pt-20">
       {/* Clinician Profile */}
       <div className="mb-6 px-2 flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary-container shadow-sm flex-shrink-0">
-          <img
-            src={DOCTOR_PROFILE.avatar}
-            alt="Clinician Dr. Anita profile"
-            className="w-full h-full object-cover"
-          />
+        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary-container shadow-sm flex-shrink-0 bg-primary-container text-white flex items-center justify-center font-bold">
+          <span className="material-symbols-outlined text-[26px]">stethoscope</span>
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="font-headline-md text-headline-md text-primary font-bold truncate">
-            {DOCTOR_PROFILE.name}
+            {doctorName}
           </h2>
-          <p className="font-label-sm text-label-sm text-on-surface-variant truncate">
-            {DOCTOR_PROFILE.hospital}
+          <p className="font-label-sm text-xs text-primary font-semibold truncate">
+            ID: {doctorId}
+          </p>
+          <p className="font-label-sm text-[11px] text-on-surface-variant truncate">
+            {doctorHospital}
           </p>
         </div>
       </div>
@@ -110,13 +113,13 @@ export const DoctorSidebar: React.FC<DoctorSidebarProps> = ({
         <li>
           <button
             onClick={() => {
-              showToast(language === 'hi' ? 'सत्र समाप्त किया गया' : 'Signed out of Doctor Session');
               if (onCloseMobileDrawer) onCloseMobileDrawer();
+              logout();
             }}
-            className="w-full min-h-[44px] px-4 flex items-center gap-3 text-error hover:bg-error-container/30 rounded-lg text-left transition-colors"
+            className="w-full min-h-[44px] px-4 flex items-center gap-3 text-error hover:bg-error-container/30 rounded-lg text-left transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">logout</span>
-            <span className="font-label-md text-label-md">
+            <span className="font-label-md text-label-md font-semibold">
               {language === 'hi' ? 'साइन आउट' : 'Sign Out'}
             </span>
           </button>

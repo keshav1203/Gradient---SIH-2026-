@@ -8,7 +8,7 @@ interface TopAppBarProps {
 }
 
 export const TopAppBar: React.FC<TopAppBarProps> = ({ onToggleMobileSidebar }) => {
-  const { portal, setPortal, language, toggleLanguage, showToast } = usePortal();
+  const { portal, language, toggleLanguage, showToast, currentUser, logout } = usePortal();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSync = () => {
@@ -41,39 +41,19 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onToggleMobileSidebar }) =
 
       {/* Center / Right controls */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Portal Switcher Badge */}
-        <div className="flex items-center bg-surface-container-low p-1 rounded-full border border-outline-variant/40 shadow-inner">
-          <button
-            onClick={() => {
-              setPortal('doctor');
-              showToast('Switched to Doctor / Clinician Portal');
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-label-md transition-all duration-200 flex items-center gap-1.5 ${
-              portal === 'doctor'
-                ? 'bg-primary-container text-white shadow-sm font-bold'
-                : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[15px]">stethoscope</span>
-            <span className="hidden sm:inline">Doctor Portal</span>
-            <span className="sm:hidden">Doctor</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setPortal('patient');
-              showToast('Switched to Patient Portal');
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-label-md transition-all duration-200 flex items-center gap-1.5 ${
-              portal === 'patient'
-                ? 'bg-primary-container text-white shadow-sm font-bold'
-                : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[15px]">person</span>
-            <span className="hidden sm:inline">Patient Portal</span>
-            <span className="sm:hidden">Patient</span>
-          </button>
+        {/* Active Portal Badge & Status */}
+        <div className="flex items-center bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/40 shadow-inner">
+          <span className="flex items-center gap-1.5 text-xs font-bold text-primary">
+            <span className="material-symbols-outlined text-[16px] text-primary">
+              {portal === 'doctor' ? 'stethoscope' : 'person'}
+            </span>
+            <span className="hidden sm:inline">
+              {portal === 'doctor' ? `Clinician: ${currentUser?.doctor?.doctorId || 'DOC-ANITA'}` : `Patient: ${currentUser?.patient?.patientId || 'PT-8924'}`}
+            </span>
+            <span className="sm:hidden">
+              {portal === 'doctor' ? 'Doctor' : 'Patient'}
+            </span>
+          </span>
         </div>
 
         {/* Language Selector */}
@@ -104,6 +84,17 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onToggleMobileSidebar }) =
           </span>
         </button>
 
+        {/* Logout Button */}
+        <button
+          onClick={logout}
+          aria-label="Sign out of portal"
+          title="Sign out"
+          className="flex items-center gap-1.5 bg-surface-container-low hover:bg-error-container/50 hover:text-error px-2.5 sm:px-3.5 py-1.5 rounded-full transition-colors text-on-surface-variant hover:border-error/40 border border-outline-variant/30 text-xs font-semibold cursor-pointer active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[17px] text-error">logout</span>
+          <span className="text-xs font-semibold text-error">{language === 'hi' ? 'लॉगआउट' : 'Logout'}</span>
+        </button>
+
         {/* User Profile Avatar */}
         <div className="ml-1 flex items-center gap-2">
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-primary-container/40 shadow-sm flex-shrink-0">
@@ -114,12 +105,12 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onToggleMobileSidebar }) =
               loading="lazy"
             />
           </div>
-          <div className="hidden xl:flex flex-col text-left">
+          <div className="hidden sm:flex flex-col text-left">
             <span className="text-xs font-bold text-primary leading-tight">
-              {portal === 'doctor' ? DOCTOR_PROFILE.name : PATIENT_PROFILE.name}
+              {portal === 'doctor' ? (currentUser?.doctor?.name || DOCTOR_PROFILE.name) : (currentUser?.patient?.name || PATIENT_PROFILE.name)}
             </span>
             <span className="text-[10px] text-on-surface-variant leading-none">
-              {portal === 'doctor' ? DOCTOR_PROFILE.hospital : 'Patient #8924'}
+              {portal === 'doctor' ? (currentUser?.doctor?.hospital || DOCTOR_PROFILE.hospital) : `ID: ${currentUser?.patient?.patientId || 'PT-8924'}`}
             </span>
           </div>
         </div>

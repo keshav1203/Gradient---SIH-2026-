@@ -7,7 +7,7 @@ import { getTranslation } from '../../data/translations';
 import { GradCamReadingBar } from '../common/GradCamReadingBar';
 
 export const ApproveReportsView: React.FC = () => {
-  const { currentScreening, selectedScreeningId, setSelectedScreeningId, setCurrentScreening, showToast, language } = usePortal();
+  const { currentScreening, selectedScreeningId, setSelectedScreeningId, setCurrentScreening, showToast, language, currentUser } = usePortal();
   const [screenings, setScreenings] = useState<ScreeningRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,9 +29,7 @@ export const ApproveReportsView: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await apiService.getScreenings();
-      if (data && data.length > 0) {
-        setScreenings(data);
-      }
+      setScreenings(data || []);
     } catch {
       // Fallback handled in service
     } finally {
@@ -41,7 +39,7 @@ export const ApproveReportsView: React.FC = () => {
 
   useEffect(() => {
     fetchScreenings();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (selectedScreeningId && screenings.length > 0 && !reviewingScreening) {
@@ -97,16 +95,18 @@ export const ApproveReportsView: React.FC = () => {
   const handleApproveReport = async () => {
     if (!reviewingScreening) return;
     setIsSubmitting(true);
+    const doctorName = currentUser?.doctor?.name || reviewingScreening.review.verifiedBy || 'Treating Clinician';
     try {
       const updated = await apiService.submitClinicianReview(
         reviewingScreening.id,
         clinicalNotes,
-        'verified'
+        'verified',
+        doctorName
       );
       showToast(
         language === 'hi'
-          ? `${updated.patientName} की रिपोर्ट डॉक्टर अनीता द्वारा सत्यापित एवं स्वीकृत की गई!`
-          : `Report for ${updated.patientName} successfully verified and approved by Dr. Anita!`
+          ? `${updated.patientName} की रिपोर्ट ${doctorName} द्वारा सत्यापित एवं स्वीकृत की गई!`
+          : `Report for ${updated.patientName} successfully verified and approved by ${doctorName}!`
       );
       // Update local state
       setScreenings((prev) =>
@@ -169,7 +169,7 @@ export const ApproveReportsView: React.FC = () => {
             {isVerified ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C8E6C9] text-[#2E7D32] text-xs font-bold border border-[#2E7D32]/30">
                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                Verified by {reviewingScreening.review.verifiedBy || 'Dr. Anita'}
+                Verified by {reviewingScreening.review.verifiedBy || currentUser?.doctor?.name || 'Treating Clinician'}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFE082] text-[#E65100] text-xs font-bold border border-[#FFA000]/30">

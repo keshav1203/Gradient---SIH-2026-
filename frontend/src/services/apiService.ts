@@ -1,7 +1,77 @@
-import { Patient, ScreeningRecord, ReviewStatus, Appointment, RiskLevel, LesionFindings, DetailedQualityMetrics, QualityAssessmentResult, AiDiagnosticResult } from '../types';
+import { Patient, ScreeningRecord, ReviewStatus, Appointment, RiskLevel, LesionFindings, DetailedQualityMetrics, QualityAssessmentResult, AiDiagnosticResult, AuthSession, PatientPortalReport, AssistantMessage } from '../types';
 import { INITIAL_PATIENTS, INITIAL_SCREENINGS, INITIAL_METRICS, RETINAL_ASSETS } from '../data/mockData';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
+let currentAuthToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_auth_token') : null;
+let currentDoctorId: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_id') : null;
+let currentPatientId: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_patient_id') : null;
+
+export function setAuthSession(session: AuthSession | null) {
+  if (session) {
+    currentAuthToken = session.token;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('drishtikon_auth_token', session.token);
+      localStorage.setItem('drishtikon_auth_role', session.role);
+    }
+    if (session.role === 'doctor' && session.doctor) {
+      currentDoctorId = session.doctor.doctorId;
+      currentPatientId = null;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('drishtikon_doctor_id', session.doctor.doctorId);
+        localStorage.setItem('drishtikon_doctor_name', session.doctor.name);
+        localStorage.setItem('drishtikon_doctor_hospital', session.doctor.hospital || '');
+        localStorage.setItem('drishtikon_doctor_department', session.doctor.department || '');
+        localStorage.removeItem('drishtikon_patient_id');
+      }
+    } else if (session.role === 'patient' && session.patient) {
+      currentPatientId = session.patient.patientId;
+      currentDoctorId = null;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('drishtikon_patient_id', session.patient.patientId);
+        localStorage.setItem('drishtikon_patient_name', session.patient.name);
+        if (session.patient.phone) localStorage.setItem('drishtikon_patient_phone', session.patient.phone);
+        if (session.patient.age) localStorage.setItem('drishtikon_patient_age', String(session.patient.age));
+        if (session.patient.gender) localStorage.setItem('drishtikon_patient_gender', session.patient.gender);
+        localStorage.removeItem('drishtikon_doctor_id');
+        localStorage.removeItem('drishtikon_doctor_name');
+        localStorage.removeItem('drishtikon_doctor_hospital');
+        localStorage.removeItem('drishtikon_doctor_department');
+      }
+    }
+  } else {
+    currentAuthToken = null;
+    currentDoctorId = null;
+    currentPatientId = null;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('drishtikon_auth_token');
+      localStorage.removeItem('drishtikon_auth_role');
+      localStorage.removeItem('drishtikon_doctor_id');
+      localStorage.removeItem('drishtikon_doctor_name');
+      localStorage.removeItem('drishtikon_doctor_hospital');
+      localStorage.removeItem('drishtikon_doctor_department');
+      localStorage.removeItem('drishtikon_patient_id');
+      localStorage.removeItem('drishtikon_patient_name');
+      localStorage.removeItem('drishtikon_patient_phone');
+      localStorage.removeItem('drishtikon_patient_age');
+      localStorage.removeItem('drishtikon_patient_gender');
+    }
+  }
+}
+
+export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (currentAuthToken) {
+    headers['Authorization'] = `Bearer ${currentAuthToken}`;
+  }
+  if (currentDoctorId) {
+    headers['X-Doctor-Id'] = currentDoctorId;
+  }
+  if (currentPatientId) {
+    headers['X-Patient-Id'] = currentPatientId;
+  }
+  return headers;
+}
 
 // In-memory fallback stores (used if backend is offline or during testing)
 let patientsStore: Patient[] = [...INITIAL_PATIENTS];
@@ -236,8 +306,8 @@ function transformScreening(data: any): ScreeningRecord {
     aiResult,
     review: {
       verified: review.verified ?? (review.status === 'verified'),
-      verifiedBy: review.verified_by || 'Dr. Anita',
-      doctorHospital: review.doctor_hospital || 'District Hospital Eye Care Centre',
+      verifiedBy: review.verified_by || (typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_name') : null) || 'Treating Clinician',
+      doctorHospital: review.doctor_hospital || (typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_hospital') : null) || 'District Hospital Eye Care Centre',
       date: review.date || 'Today, 11:15 AM',
       notes: review.notes || (review.status === 'verified' ? 'Findings verified by clinician.' : 'Pending clinician review.'),
       status: (review.status as ReviewStatus) || 'pending',
@@ -259,46 +329,209 @@ function transformPatient(p: any): Patient {
     age: p.age,
     gender: p.gender || 'Male',
     phone: p.contact_number || '+91 98000 00000',
-    location: 'District Hospital PHC',
+    location: p.medical_history || 'District Hospital PHC',
     lastScreeningDate: p.updated_at ? new Date(p.updated_at).toLocaleDateString() : 'Recently',
-    riskLevel: 'medium',
-    reviewStatus: 'verified',
-    screeningsCount: 1,
-    latestScreeningId: `SCR-${p.patient_id}`,
+    riskLevel: (p.latest_risk_level as RiskLevel) || 'normal',
+    reviewStatus: (p.latest_review_status as ReviewStatus) || 'pending',
+    screeningsCount: p.screenings_count !== undefined ? p.screenings_count : 0,
+    latestScreeningId: p.latest_screening_id || '',
+    doctorId: p.doctor_id,
+    doctorName: p.doctor_name,
   };
 }
 
 export const apiService = {
+  async doctorLogin(doctorId: string, password: string): Promise<AuthSession> {
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/auth/doctor/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctor_id: doctorId.trim(), password: password.trim() })
+      });
+    } catch (networkErr: any) {
+      throw new Error('Unable to connect to authentication server. Please check your network connection.');
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      const session: AuthSession = {
+        role: 'doctor',
+        token: data.token,
+        doctor: {
+          id: data.doctor.id,
+          doctorId: data.doctor.doctor_id,
+          name: data.doctor.name,
+          dob: data.doctor.dob,
+          hospital: data.doctor.hospital,
+          department: data.doctor.department
+        }
+      };
+      setAuthSession(session);
+      return session;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Invalid Doctor ID or password.');
+    }
+  },
+
+  async patientLogin(identifier: string, phoneNumber?: string): Promise<AuthSession> {
+    let res: Response;
+    try {
+      const payload: Record<string, string> = {
+        identifier: identifier.trim()
+      };
+      if (phoneNumber && phoneNumber.trim()) {
+        payload.patient_id = identifier.trim();
+        payload.phone_number = phoneNumber.trim();
+      }
+
+      res = await fetch(`${API_BASE}/auth/patient/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (networkErr: any) {
+      throw new Error('Unable to connect to authentication server. Please check your network connection.');
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      const session: AuthSession = {
+        role: 'patient',
+        token: data.token,
+        patient: {
+          patientId: data.patient.patient_id,
+          name: `${data.patient.first_name} ${data.patient.last_name}`.trim(),
+          phone: data.patient.contact_number,
+          age: data.patient.age,
+          gender: data.patient.gender
+        }
+      };
+      setAuthSession(session);
+      return session;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'No patient record found matching that Patient ID or Phone Number.');
+    }
+  },
+
+  logout() {
+    setAuthSession(null);
+  },
+
+  // --- PATIENT PORTAL ---
+  async getPatientReports(): Promise<PatientPortalReport[]> {
+    try {
+      const res = await fetch(`${API_BASE}/patient/reports`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          return data.map((item: any) => ({
+            id: item.id || item.screening_id,
+            screeningId: item.screening_id,
+            patientId: item.patient_id,
+            patientName: item.patient_name,
+            date: item.date,
+            eye: item.eye,
+            originalImageUrl: item.original_image_url,
+            finding: item.finding,
+            severity: item.severity,
+            reviewStatus: item.review_status,
+            verifiedBy: item.verified_by,
+            recommendation: item.recommendation,
+            notes: item.notes
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch patient reports from API, using fallback:", e);
+    }
+    // Fallback: strictly return ONLY real fundus image
+    return screeningsStore
+      .filter(s => !currentPatientId || s.patientId === currentPatientId)
+      .map(s => ({
+        id: s.id,
+        screeningId: s.id,
+        patientId: s.patientId,
+        patientName: s.patientName,
+        date: s.screeningDate,
+        eye: s.eye,
+        originalImageUrl: s.images.original || RETINAL_ASSETS.patientReportOriginal,
+        finding: s.aiResult.finding,
+        severity: s.aiResult.severity,
+        reviewStatus: s.review.status,
+        verifiedBy: s.review.verifiedBy,
+        recommendation: s.aiResult.recommendation,
+        notes: s.review.notes
+      }));
+  },
+
+  async sendPatientChatMessage(message: string, history?: AssistantMessage[]): Promise<{ reply: string; model: string }> {
+    try {
+      const historyPayload = history ? history.map(h => ({ role: h.sender, content: h.text })) : [];
+      const res = await fetch(`${API_BASE}/patient/chat`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ message, history: historyPayload })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { reply: data.reply, model: data.model };
+      }
+    } catch (e) {
+      console.warn("Could not send patient chat message to API:", e);
+    }
+    return {
+      reply: "Thank you for asking. Based on your retinal scan, microvascular signs have been evaluated. Please consult your treating eye care specialist for tailored clinical guidance.",
+      model: "Drishtikon Ophthalmologist Assistant"
+    };
+  },
+
   // --- METRICS ---
   async getDashboardMetrics() {
     try {
-      const res = await fetch(`${API_BASE}/screenings/metrics/stats`);
+      const res = await fetch(`${API_BASE}/screenings/metrics/stats`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        metricsStore = {
-          ...metricsStore,
-          totalPatients: data.total_patients || metricsStore.totalPatients,
-          todaysScreenings: data.todays_screenings || metricsStore.todaysScreenings,
-          todaysScreeningsDelta: data.todays_screenings_delta || metricsStore.todaysScreeningsDelta,
-          pendingReviews: data.pending_reviews || metricsStore.pendingReviews,
-          lowConfidenceCases: data.low_confidence_cases || metricsStore.lowConfidenceCases,
-          lowConfidenceNote: data.low_confidence_note || metricsStore.lowConfidenceNote,
+        return {
+          totalPatients: data.total_patients ?? "0",
+          todaysScreenings: typeof data.todays_screenings === 'number' ? data.todays_screenings : 0,
+          todaysScreeningsDelta: data.todays_screenings_delta ?? "+0",
+          pendingReviews: typeof data.pending_reviews === 'number' ? data.pending_reviews : 0,
+          lowConfidenceCases: typeof data.low_confidence_cases === 'number' ? data.low_confidence_cases : 0,
+          lowConfidenceNote: data.low_confidence_note ?? "",
         };
-        return metricsStore;
       }
     } catch {
       // Backend offline, fallback to local store
     }
-    return { ...metricsStore };
+    if (!currentAuthToken) {
+      return { ...metricsStore };
+    }
+    return {
+      totalPatients: "0",
+      todaysScreenings: 0,
+      todaysScreeningsDelta: "+0",
+      pendingReviews: 0,
+      lowConfidenceCases: 0,
+      lowConfidenceNote: "",
+    };
   },
 
   // --- PATIENTS ---
   async getPatients(filters?: { search?: string; riskLevel?: string; reviewStatus?: string }): Promise<Patient[]> {
     try {
-      const res = await fetch(`${API_BASE}/patients/`);
+      const res = await fetch(`${API_BASE}/patients/`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           let list = data.map(transformPatient);
           if (filters?.search) {
             const s = filters.search.toLowerCase();
@@ -310,11 +543,12 @@ export const apiService = {
           if (filters?.reviewStatus && filters.reviewStatus !== 'all' && filters.reviewStatus !== '') {
             list = list.filter(p => p.reviewStatus === filters.reviewStatus);
           }
+          patientsStore = list;
           return list;
         }
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn("Could not fetch patients from persistent database:", err);
     }
 
     let result = [...patientsStore];
@@ -333,7 +567,9 @@ export const apiService = {
 
   async getPatientById(id: string): Promise<Patient | undefined> {
     try {
-      const res = await fetch(`${API_BASE}/patients/${id}`);
+      const res = await fetch(`${API_BASE}/patients/${id}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
         return transformPatient(data);
@@ -346,7 +582,10 @@ export const apiService = {
 
   async deletePatient(id: string): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE}/patients/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/patients/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (res.ok || res.status === 204) {
         patientsStore = patientsStore.filter(p => p.id !== id);
         screeningsStore = screeningsStore.filter(s => s.patientId !== id);
@@ -361,55 +600,45 @@ export const apiService = {
   },
 
   async addPatient(patientData: Omit<Patient, 'id' | 'screeningsCount' | 'latestScreeningId' | 'lastScreeningDate'>): Promise<Patient> {
-    const names = patientData.name.split(' ');
+    const names = patientData.name.trim().split(' ');
     const firstName = names[0] || 'Patient';
     const lastName = names.slice(1).join(' ') || 'User';
     const patId = `PAT-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    try {
-      const res = await fetch(`${API_BASE}/patients/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patient_id: patId,
-          first_name: firstName,
-          last_name: lastName,
-          age: patientData.age,
-          gender: patientData.gender,
-          contact_number: patientData.phone,
-          medical_history: patientData.location || 'General screening'
-        })
-      });
+    const res = await fetch(`${API_BASE}/patients/`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        patient_id: patId,
+        first_name: firstName,
+        last_name: lastName,
+        age: patientData.age,
+        gender: patientData.gender,
+        contact_number: patientData.phone,
+        medical_history: patientData.location || 'General screening'
+      })
+    });
 
-      if (res.ok) {
-        const created = await res.json();
-        const transformed = transformPatient(created);
-        patientsStore = [transformed, ...patientsStore];
-        return transformed;
-      }
-    } catch {
-      // Fallback
+    if (res.ok) {
+      const created = await res.json();
+      const transformed = transformPatient(created);
+      patientsStore = [transformed, ...patientsStore.filter(p => p.id !== transformed.id)];
+      return transformed;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Failed to save patient in database (Status ${res.status})`);
     }
-
-    const nextNum = patientsStore.length + 1;
-    const newPatient: Patient = {
-      ...patientData,
-      id: `PAT-00${nextNum}`,
-      lastScreeningDate: 'Just Added',
-      screeningsCount: 0,
-      latestScreeningId: '',
-    };
-    patientsStore = [newPatient, ...patientsStore];
-    return newPatient;
   },
 
   // --- SCREENINGS ---
   async getScreenings(): Promise<ScreeningRecord[]> {
     try {
-      const res = await fetch(`${API_BASE}/screenings/`);
+      const res = await fetch(`${API_BASE}/screenings/`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           const list = data.map(transformScreening);
           screeningsStore = list;
           return list;
@@ -423,7 +652,9 @@ export const apiService = {
 
   async getScreeningById(id: string): Promise<ScreeningRecord | undefined> {
     try {
-      const res = await fetch(`${API_BASE}/screenings/${id}`);
+      const res = await fetch(`${API_BASE}/screenings/${id}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
         const item = transformScreening(data);
@@ -443,7 +674,9 @@ export const apiService = {
 
   async getLatestPatientScreening(patientId: string): Promise<ScreeningRecord | undefined> {
     try {
-      const res = await fetch(`${API_BASE}/screenings/patient/${patientId}`);
+      const res = await fetch(`${API_BASE}/screenings/patient/${patientId}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -471,6 +704,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE}/screenings/assess-quality`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -531,8 +765,17 @@ export const apiService = {
 
   async processScreeningSubmission(formData: FormData): Promise<ScreeningRecord> {
     try {
+      if (currentDoctorId && !formData.has('doctor_id')) {
+        formData.append('doctor_id', currentDoctorId);
+      }
+      const storedDoctorName = typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_name') : null;
+      if (storedDoctorName && !formData.has('doctor_name')) {
+        formData.append('doctor_name', storedDoctorName);
+      }
+
       const res = await fetch(`${API_BASE}/screenings/process`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -540,6 +783,25 @@ export const apiService = {
         const data = await res.json();
         const record = transformScreening(data);
         screeningsStore = [record, ...screeningsStore];
+
+        // Ensure patient is immediately updated in in-memory patient store
+        const newPatient: Patient = {
+          id: record.patientId,
+          name: record.patientName,
+          nameHi: record.patientName,
+          age: record.patientAge,
+          gender: record.patientGender,
+          phone: (formData.get('contact_number') as string) || '+91 98000 00000',
+          location: 'District Hospital PHC',
+          lastScreeningDate: 'Just Now',
+          riskLevel: record.aiResult?.riskLevel || 'normal',
+          reviewStatus: record.review?.status || 'verified',
+          screeningsCount: 1,
+          latestScreeningId: record.id,
+          doctorId: currentDoctorId || undefined,
+          doctorName: storedDoctorName || undefined,
+        };
+        patientsStore = [newPatient, ...patientsStore.filter(p => p.id !== newPatient.id)];
         return record;
       } else {
         const errJson = await res.json().catch(() => ({}));
@@ -625,15 +887,16 @@ export const apiService = {
     return newScreening;
   },
 
-  async submitClinicianReview(screeningId: string, notes: string, status: ReviewStatus = 'verified'): Promise<ScreeningRecord> {
+  async submitClinicianReview(screeningId: string, notes: string, status: ReviewStatus = 'verified', reviewerName?: string): Promise<ScreeningRecord> {
+    const docName = reviewerName || (typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_name') : null) || 'Treating Clinician';
     try {
       const res = await fetch(`${API_BASE}/screenings/${screeningId}/review`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           notes,
           status,
-          verified_by: 'Dr. Anita'
+          verified_by: docName
         })
       });
 
@@ -659,7 +922,7 @@ export const apiService = {
         review: {
           ...screeningsStore[idx].review,
           verified: status === 'verified',
-          verifiedBy: 'Dr. Anita',
+          verifiedBy: docName,
           date: 'Today, Just now',
           notes,
           status,
@@ -673,11 +936,12 @@ export const apiService = {
   },
 
   // --- APPOINTMENTS ---
-  async bookTeleconsultation(patientId: string, date: string, time: string): Promise<Appointment> {
+  async bookTeleconsultation(patientId: string, date: string, time: string, doctorName?: string): Promise<Appointment> {
+    const doc = doctorName || (typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_name') : null) || 'Treating Clinician';
     const newAppt: Appointment = {
       id: `APT-${Date.now().toString().slice(-4)}`,
       patientId,
-      doctorName: 'Dr. Anita',
+      doctorName: doc,
       date,
       time,
       type: 'Teleconsultation',

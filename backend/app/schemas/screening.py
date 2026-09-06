@@ -65,7 +65,7 @@ class QualityAssessmentResponse(BaseModel):
 class ClinicianReviewIn(BaseModel):
     notes: Optional[str] = None
     status: str = "verified" # verified, review_required, pending
-    verified_by: Optional[str] = "Dr. Anita"
+    verified_by: Optional[str] = None
 
 class ClinicianReviewOut(BaseModel):
     verified: bool = False
@@ -102,6 +102,7 @@ class ScreeningResponse(BaseModel):
     status: str = "success"  # success, rejected, error
     screening_id: str
     patient_id: Optional[str] = None
+    doctor_id: Optional[str] = None
     patient: Optional[PatientOut] = None
     dataset: str
     model: str

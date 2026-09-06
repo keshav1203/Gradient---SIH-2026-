@@ -4,14 +4,20 @@ import { apiService } from '../../services/apiService';
 import { ScreeningRecord } from '../../types';
 
 export const RecentScreeningsTable: React.FC = () => {
-  const { setDoctorTab, navigateToApproveReport, language } = usePortal();
+  const { setDoctorTab, navigateToApproveReport, language, currentUser, dataVersion } = usePortal();
   const [screenings, setScreenings] = useState<ScreeningRecord[]>([]);
 
   useEffect(() => {
+    let mounted = true;
     apiService.getScreenings().then((res) => {
-      if (res && res.length > 0) setScreenings(res.slice(0, 5));
+      if (mounted) {
+        setScreenings(res ? res.slice(0, 5) : []);
+      }
     });
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser, dataVersion]);
 
   return (
     <div className="bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container overflow-hidden">
@@ -43,7 +49,24 @@ export const RecentScreeningsTable: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-container text-on-surface">
-            {screenings.map((screening) => {
+            {screenings.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-on-surface-variant">
+                  <span className="material-symbols-outlined text-[32px] text-outline opacity-60">
+                    folder_open
+                  </span>
+                  <p className="font-semibold text-xs mt-1">
+                    {language === 'hi' ? 'कोई हालिया स्क्रीनिंग नहीं मिली' : 'No recent screenings on record.'}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant opacity-80 mt-0.5">
+                    {language === 'hi'
+                      ? 'नई स्क्रीनिंग शुरू करने के लिए "नई स्क्रीनिंग" बटन का उपयोग करें।'
+                      : 'You currently have no patient screening records. Start a new screening to begin.'}
+                  </p>
+                </td>
+              </tr>
+            ) : (
+              screenings.map((screening) => {
               const isVerified = screening.review.status === 'verified';
               const isPending = screening.review.status === 'pending';
 
@@ -114,7 +137,7 @@ export const RecentScreeningsTable: React.FC = () => {
                   </td>
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>

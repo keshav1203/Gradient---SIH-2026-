@@ -9,9 +9,9 @@ from backend.app.core.database import Base, engine, init_db
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     init_db()
-    # Drop and recreate tables for clean test isolation across repeated pytest invocations
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    init_db()
 
 client = TestClient(app)
 

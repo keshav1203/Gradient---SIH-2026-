@@ -12,6 +12,7 @@ class Screening(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     screening_id = Column(String(50), unique=True, index=True, nullable=False)
     patient_id = Column(String(50), ForeignKey("patients.patient_id", ondelete="CASCADE"), nullable=False)
+    doctor_id = Column(String(50), ForeignKey("doctors.doctor_id", ondelete="SET NULL"), nullable=True, index=True)
     
     media_type = Column(String(20), nullable=False, default="image") # image or video
     original_filename = Column(String(255), nullable=False)
@@ -43,3 +44,4 @@ class Screening(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     patient = relationship("Patient", back_populates="screenings")
+    doctor = relationship("Doctor", back_populates="screenings")

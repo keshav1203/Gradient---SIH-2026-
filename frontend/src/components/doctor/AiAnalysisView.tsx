@@ -6,7 +6,7 @@ import { getTranslation } from '../../data/translations';
 import { GradCamReadingBar } from '../common/GradCamReadingBar';
 
 export const AiAnalysisView: React.FC = () => {
-  const { currentScreening, setDoctorTab, setSelectedScreeningId, showToast, language } = usePortal();
+  const { currentScreening, setDoctorTab, setSelectedScreeningId, showToast, language, currentUser } = usePortal();
 
   // 4 Tabs: Original | Enhanced | Grad-CAM | Lesions
   const [activeTab, setActiveTab] = useState<'original' | 'enhanced' | 'heatmap' | 'lesions'>('heatmap');
@@ -35,12 +35,13 @@ export const AiAnalysisView: React.FC = () => {
 
   const handleApprove = async () => {
     setIsApproving(true);
+    const doctorName = currentUser?.doctor?.name || currentScreening.review.verifiedBy || 'Treating Clinician';
     try {
-      await apiService.submitClinicianReview(currentScreening.id, clinicalNotes, 'verified');
+      await apiService.submitClinicianReview(currentScreening.id, clinicalNotes, 'verified', doctorName);
       showToast(
         language === 'hi'
-          ? 'रिपोर्ट डॉक्टर द्वारा सत्यापित की गई!'
-          : 'Report verified by Dr. Anita and approved!'
+          ? `रिपोर्ट ${doctorName} द्वारा सत्यापित की गई!`
+          : `Report verified by ${doctorName} and approved!`
       );
       setSelectedScreeningId('');
       setTimeout(() => {

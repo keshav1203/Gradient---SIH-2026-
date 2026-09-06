@@ -156,6 +156,8 @@ export interface Patient {
   reviewStatus: ReviewStatus;
   screeningsCount: number;
   latestScreeningId: string;
+  doctorId?: string;
+  doctorName?: string;
 }
 
 export interface CareGuideline {
@@ -182,4 +184,45 @@ export interface AssistantMessage {
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
+}
+
+export interface DoctorUser {
+  id: number | string;
+  doctorId: string;
+  name: string;
+  dob: string;
+  hospital?: string;
+  department?: string;
+}
+
+export interface PatientUser {
+  id?: number | string;
+  patientId: string;
+  name: string;
+  phone: string;
+  age?: number;
+  gender?: string;
+}
+
+export interface AuthSession {
+  role: 'doctor' | 'patient';
+  token: string;
+  doctor?: DoctorUser;
+  patient?: PatientUser;
+}
+
+export interface PatientPortalReport {
+  id: string;
+  screeningId: string;
+  patientId: string;
+  patientName: string;
+  date: string;
+  eye: string;
+  originalImageUrl: string;
+  finding: string;
+  severity: string;
+  reviewStatus: string;
+  verifiedBy?: string;
+  recommendation?: string;
+  notes?: string;
 }

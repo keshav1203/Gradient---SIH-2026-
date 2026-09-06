@@ -1,24 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
-import { INITIAL_METRICS } from '../../data/mockData';
 import { apiService } from '../../services/apiService';
 
 export const DashboardMetrics: React.FC = () => {
-  const { setDoctorTab, language } = usePortal();
-  const [metrics, setMetrics] = useState(INITIAL_METRICS);
+  const { setDoctorTab, language, currentUser, dataVersion } = usePortal();
+  const [metrics, setMetrics] = useState({
+    totalScreened: 0,
+    todaysScreenings: 0,
+    referableCases: 0,
+    pendingAnalyses: 0,
+  });
 
   useEffect(() => {
+    let mounted = true;
     apiService.getDashboardMetrics().then((res) => {
-      if (res) {
-        setMetrics((prev) => ({
-          ...prev,
-          totalScreened: res.todaysScreenings ? 128 : prev.totalScreened,
-          todaysScreenings: res.todaysScreenings ?? prev.todaysScreenings,
-          pendingAnalyses: res.pendingReviews ?? prev.pendingAnalyses,
-        }));
+      if (res && mounted) {
+        const screenedCount = typeof res.todaysScreenings === 'number' ? res.todaysScreenings : 0;
+        const totalPatientsNum = res.totalPatients ? parseInt(String(res.totalPatients).replace(/,/g, ''), 10) : 0;
+        setMetrics({
+          totalScreened: !isNaN(totalPatientsNum) ? totalPatientsNum : screenedCount,
+          todaysScreenings: screenedCount,
+          referableCases: typeof res.lowConfidenceCases === 'number' ? res.lowConfidenceCases : 0,
+          pendingAnalyses: typeof res.pendingReviews === 'number' ? res.pendingReviews : 0,
+        });
       }
     });
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser, dataVersion]);
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

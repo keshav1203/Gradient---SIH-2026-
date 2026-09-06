@@ -8,9 +8,23 @@ import { getTranslation } from '../../data/translations';
 interface ClinicalReportSheetProps {
   report: ScreeningRecord;
   language: 'en' | 'hi';
+  currentDoctorName?: string;
+  currentDoctorHospital?: string;
 }
 
-const ClinicalReportSheet: React.FC<ClinicalReportSheetProps> = ({ report, language }) => {
+const ClinicalReportSheet: React.FC<ClinicalReportSheetProps> = ({
+  report,
+  language,
+  currentDoctorName,
+  currentDoctorHospital,
+}) => {
+  const verifiedDoctorName =
+    report.review.verifiedBy || currentDoctorName || 'Treating Clinician';
+  const hospitalName =
+    report.review.doctorHospital ||
+    currentDoctorHospital ||
+    'District Hospital Eye Care Centre';
+
   return (
     <div className="p-6 sm:p-8 space-y-6 bg-white text-[#1a1c1d]" id="printable-report">
       {/* Official Letterhead */}
@@ -20,7 +34,7 @@ const ClinicalReportSheet: React.FC<ClinicalReportSheetProps> = ({ report, langu
             DRISHTIKON RETINAL SCREENING REPORT
           </h2>
           <p className="text-xs text-[#506165] font-medium mt-0.5">
-            District Hospital Eye Care Centre · Tele-Ophthalmology & AI Diagnostics Unit
+            {hospitalName} · Tele-Ophthalmology & AI Diagnostics Unit
           </p>
         </div>
         <div className="text-left sm:text-right">
@@ -197,7 +211,7 @@ const ClinicalReportSheet: React.FC<ClinicalReportSheetProps> = ({ report, langu
         <div className="mt-3 pt-2 border-t border-[#FFE082] flex flex-wrap justify-between items-center text-[11px] text-[#506165] gap-2">
           <span>
             <strong>Verified By:</strong>{' '}
-            {report.review.verifiedBy || 'Dr. Anita (Consultant Vitreoretinal Specialist)'}
+            {verifiedDoctorName}
           </span>
           <span>
             <strong>Status:</strong> {report.review.status.toUpperCase()}
@@ -214,7 +228,7 @@ const ClinicalReportSheet: React.FC<ClinicalReportSheetProps> = ({ report, langu
 };
 
 export const ReportsView: React.FC = () => {
-  const { selectedScreeningId, showToast, language } = usePortal();
+  const { selectedScreeningId, showToast, language, currentUser, dataVersion } = usePortal();
   const [reports, setReports] = useState<ScreeningRecord[]>([]);
   const [selectedReport, setSelectedReport] = useState<ScreeningRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -223,16 +237,24 @@ export const ReportsView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     setIsLoading(true);
     apiService.getScreenings().then((res) => {
-      if (res && res.length > 0) {
-        setReports(res);
-        const match = selectedScreeningId ? res.find(r => r.id === selectedScreeningId) : null;
-        setSelectedReport(match || res[0]);
+      if (mounted) {
+        setReports(res || []);
+        if (res && res.length > 0) {
+          const match = selectedScreeningId ? res.find(r => r.id === selectedScreeningId) : null;
+          setSelectedReport(match || res[0]);
+        } else {
+          setSelectedReport(null);
+        }
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
-  }, [selectedScreeningId]);
+    return () => {
+      mounted = false;
+    };
+  }, [selectedScreeningId, currentUser, dataVersion]);
 
   // Keyboard shortcut for closing modal with Escape
   useEffect(() => {
@@ -525,7 +547,12 @@ export const ReportsView: React.FC = () => {
       {/* Hidden Print Container: Ensures Download Report prints cleanly when modal is closed */}
       {!isModalOpen && selectedReport && (
         <div className="hidden print:block">
-          <ClinicalReportSheet report={selectedReport} language={language} />
+          <ClinicalReportSheet
+            report={selectedReport}
+            language={language}
+            currentDoctorName={currentUser?.doctor?.name}
+            currentDoctorHospital={currentUser?.doctor?.hospital}
+          />
         </div>
       )}
 
@@ -593,7 +620,12 @@ export const ReportsView: React.FC = () => {
 
             {/* Modal Body: Spacious Printable Medical Sheet */}
             <div className="overflow-y-auto custom-scrollbar flex-1 bg-white">
-              <ClinicalReportSheet report={selectedReport} language={language} />
+              <ClinicalReportSheet
+                report={selectedReport}
+                language={language}
+                currentDoctorName={currentUser?.doctor?.name}
+                currentDoctorHospital={currentUser?.doctor?.hospital}
+              />
             </div>
           </div>
         </div>

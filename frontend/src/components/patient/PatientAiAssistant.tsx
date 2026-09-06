@@ -49,12 +49,13 @@ export const PatientAiAssistant: React.FC = () => {
     const isHi = language === 'hi';
     const finding = isHi ? currentScreening.aiResult.findingHi : currentScreening.aiResult.finding;
     const rec = isHi ? currentScreening.aiResult.recommendationHi : currentScreening.aiResult.recommendation;
-    const verifiedBy = currentScreening.review.verifiedBy || 'Dr. Anita';
+    const verifiedBy = currentScreening.review.verifiedBy || 'Treating Clinician';
+    const doctorDisplayHi = verifiedBy.startsWith('Dr.') || verifiedBy.startsWith('डॉ') ? verifiedBy : `डॉ. ${verifiedBy}`;
 
     // 1. What does my result mean?
     if (q.includes('mean') || q.includes('मतलब') || q.includes('result') || q.includes('परिणाम')) {
       if (isHi) {
-        return `आपकी जांच में "${finding}" दर्ज किया गया है। इसका मतलब है कि मधुमेह के कारण रेटिना की नसों में कुछ सूक्ष्म परिवर्तन दिखे हैं। डॉ. ${verifiedBy} ने इसकी पुष्टि की है। समय पर देखभाल और रक्त शर्करा के नियंत्रण से आपकी दृष्टि सुरक्षित रह सकती है।`;
+        return `आपकी जांच में "${finding}" दर्ज किया गया है। इसका मतलब है कि मधुमेह के कारण रेटिना की नसों में कुछ सूक्ष्म परिवर्तन दिखे हैं। ${doctorDisplayHi} ने इसकी पुष्टि की है। समय पर देखभाल और रक्त शर्करा के नियंत्रण से आपकी दृष्टि सुरक्षित रह सकती है।`;
       }
       return `Your screening shows "${finding}". This means small microvascular changes caused by blood sugar levels were noticed in your retina. It has been verified by ${verifiedBy}. With timely care and good blood sugar control, your vision can be well protected.`;
     }
@@ -174,18 +175,19 @@ export const PatientAiAssistant: React.FC = () => {
 
   return (
     <>
-      {/* Floating Launcher Button */}
-      <div className="fixed bottom-20 md:bottom-8 right-5 z-40">
+      {/* Floating Launcher Button - Small & Compact */}
+      <div className="fixed bottom-20 md:bottom-8 right-4 sm:right-6 z-40">
         <button
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Open AI Assistant"
-          className="h-12 px-4 rounded-full bg-primary-container text-white shadow-xl flex items-center gap-2.5 hover:bg-primary transition-all active:scale-95 border-2 border-white/20"
+          title={getTranslation('askAssistant', language)}
+          className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-primary-container text-white shadow-lg hover:shadow-xl hover:bg-primary flex items-center justify-center transition-all duration-200 border border-white/30 hover:scale-110 active:scale-95"
         >
-          <span className="material-symbols-outlined text-[22px]">psychology</span>
-          <span className="font-label-md text-xs sm:text-sm font-bold">
-            {getTranslation('askAssistant', language)}
+          <span className="material-symbols-outlined text-[20px] sm:text-[22px]">smart_toy</span>
+          <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-surface-container-lowest"></span>
           </span>
-          <span className="w-2 h-2 rounded-full bg-[#80e5ff] animate-ping"></span>
         </button>
       </div>
 

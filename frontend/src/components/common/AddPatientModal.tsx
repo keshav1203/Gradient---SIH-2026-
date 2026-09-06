@@ -8,7 +8,7 @@ interface AddPatientModalProps {
 }
 
 export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded }) => {
-  const { isAddPatientModalOpen, setIsAddPatientModalOpen, showToast, language } = usePortal();
+  const { isAddPatientModalOpen, setIsAddPatientModalOpen, showToast, language, refreshData } = usePortal();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -44,6 +44,8 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded
         riskLevel: formData.riskLevel,
         reviewStatus: formData.reviewStatus,
       });
+
+      refreshData();
 
       showToast(language === 'hi' ? 'नया मरीज सफलतापूर्वक जोड़ा गया' : `Patient ${formData.name} added to queue`);
       setIsAddPatientModalOpen(false);

@@ -3,9 +3,11 @@ import { usePortal } from '../../context/PortalContext';
 import { RETINAL_ASSETS } from '../../data/mockData';
 
 export const ExplainResultModal: React.FC = () => {
-  const { isExplainModalOpen, setIsExplainModalOpen, language } = usePortal();
+  const { isExplainModalOpen, setIsExplainModalOpen, language, currentScreening } = usePortal();
 
   if (!isExplainModalOpen) return null;
+
+  const docName = currentScreening?.review?.verifiedBy;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -92,12 +94,12 @@ export const ExplainResultModal: React.FC = () => {
             <div className="bg-surface-container-lowest p-4 rounded-xl border border-surface-container elevation-1">
               <h4 className="text-sm font-bold text-primary mb-1 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#2E7D32] text-[18px]">verified_user</span>
-                {language === 'hi' ? 'डॉक्टर की पुष्टि क्यों महत्वपूर्ण है?' : 'Why is Dr. Anita’s verification important?'}
+                {language === 'hi' ? 'डॉक्टर की पुष्टि क्यों महत्वपूर्ण है?' : 'Why is doctor verification important?'}
               </h4>
               <p className="text-xs text-on-surface-variant leading-relaxed">
                 {language === 'hi'
-                  ? 'दृष्टिकोण एआई एक सहयोगी तकनीक है। प्रत्येक एआई स्कोर को जिला अस्पताल की नेत्र विशेषज्ञ डॉ. अनीता द्वारा व्यक्तिगत रूप से सत्यापित किया जाता है।'
-                  : 'Drishtikon uses Explainable AI as a clinical assistant. Every automated assessment is reviewed and confirmed by an expert ophthalmologist before final advice.'}
+                  ? `दृष्टिकोण एआई एक सहयोगी तकनीक है। प्रत्येक एआई स्कोर को नेत्र विशेषज्ञ ${docName ? docName + ' ' : ''}द्वारा व्यक्तिगत रूप से सत्यापित किया जाता है।`
+                  : `Drishtikon uses Explainable AI as a clinical assistant. Every automated assessment is reviewed and confirmed by ${docName ? docName : 'an expert ophthalmologist'} before final advice.`}
               </p>
             </div>
           </div>

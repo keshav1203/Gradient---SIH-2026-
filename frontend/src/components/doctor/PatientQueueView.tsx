@@ -9,6 +9,8 @@ export const PatientQueueView: React.FC = () => {
     navigateToPatientReport,
     showToast,
     language,
+    currentUser,
+    dataVersion,
   } = usePortal();
 
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -26,7 +28,7 @@ export const PatientQueueView: React.FC = () => {
         search,
         riskLevel: riskFilter,
       });
-      setPatients(data);
+      setPatients(data || []);
     } finally {
       setIsLoading(false);
     }
@@ -34,7 +36,7 @@ export const PatientQueueView: React.FC = () => {
 
   useEffect(() => {
     fetchPatients();
-  }, [search, riskFilter]);
+  }, [search, riskFilter, currentUser, dataVersion]);
 
   const handleDeletePatient = async (patient: Patient) => {
     setIsDeleting(true);
@@ -151,8 +153,15 @@ export const PatientQueueView: React.FC = () => {
               ) : patients.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[36px] text-outline">search_off</span>
-                    <p className="font-semibold text-sm mt-1">No patients match the search criteria.</p>
+                    <span className="material-symbols-outlined text-[36px] text-outline">group_off</span>
+                    <p className="font-semibold text-sm mt-1">
+                      {language === 'hi' ? 'कोई मरीज रिकॉर्ड नहीं मिला' : 'No patients found.'}
+                    </p>
+                    <p className="text-xs text-on-surface-variant mt-1">
+                      {search
+                        ? (language === 'hi' ? 'खोज मानदंडों से मेल खाने वाला कोई मरीज नहीं मिला।' : 'No patients match the search criteria.')
+                        : (language === 'hi' ? 'आपके पास अभी कोई मरीज रिकॉर्ड नहीं है। नया मरीज जोड़ने के लिए "नया मरीज जोड़ें" पर क्लिक करें।' : 'You do not have any registered patients yet. Click "Add New Patient" to register one.')}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -169,6 +178,12 @@ export const PatientQueueView: React.FC = () => {
                       <td className="p-4 font-medium text-on-surface">
                         {language === 'hi' && patient.nameHi ? patient.nameHi : patient.name}
                         <div className="text-[11px] text-on-surface-variant">{patient.phone}</div>
+                        {(patient.doctorName || currentUser?.doctor?.name) && (
+                          <div className="text-[11px] text-primary/85 font-medium flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-[13px]">stethoscope</span>
+                            <span>{patient.doctorName || currentUser?.doctor?.name}</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Age */}

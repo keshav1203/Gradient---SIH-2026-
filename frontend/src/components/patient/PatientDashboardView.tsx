@@ -242,8 +242,8 @@ export const PatientDashboardView: React.FC = () => {
 
             <p className="text-xs text-on-surface-variant mb-3 leading-relaxed">
               {language === 'hi'
-                ? 'अपनी रिपोर्ट और उपचार पर चर्चा के लिए विशेषज्ञ डॉ. अनीता से टेली-परामर्श बुक करें।'
-                : 'Connect with consultant ophthalmologist Dr. Anita for tele-consultation advice.'}
+                ? `अपनी रिपोर्ट और उपचार पर चर्चा के लिए विशेषज्ञ ${currentScreening.review.verifiedBy || 'नेत्र विशेषज्ञ'} से टेली-परामर्श बुक करें।`
+                : `Connect with ${currentScreening.review.verifiedBy || 'consultant ophthalmologist'} for tele-consultation advice.`}
             </p>
           </div>
 

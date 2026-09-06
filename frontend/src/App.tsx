@@ -10,6 +10,9 @@ import { AddPatientModal } from './components/common/AddPatientModal';
 import { TeleconsultModal } from './components/common/TeleconsultModal';
 import { ExplainResultModal } from './components/common/ExplainResultModal';
 
+// Auth Views
+import { LandingPageView } from './components/auth/LandingPageView';
+
 // Doctor Views
 import { ClinicianDashboardView } from './components/doctor/ClinicianDashboardView';
 import { PatientQueueView } from './components/doctor/PatientQueueView';
@@ -18,14 +21,22 @@ import { ApproveReportsView } from './components/doctor/ApproveReportsView';
 import { AiAnalysisView } from './components/doctor/AiAnalysisView';
 import { ReportsView } from './components/doctor/ReportsView';
 
-// Patient Views
-import { PatientDashboardView } from './components/patient/PatientDashboardView';
-import { PatientReportView } from './components/patient/PatientReportView';
-import { PatientProfileView } from './components/patient/PatientProfileView';
+// Patient Views (Reports section only + Groq Chatbot)
+import { PatientPortalView } from './components/patient/PatientPortalView';
 
 const AppContent: React.FC = () => {
-  const { portal, doctorTab, patientTab } = usePortal();
+  const { portal, doctorTab, isAuthenticated } = usePortal();
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  // If user is not authenticated, show the landing page
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LandingPageView />
+        <Toast />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-on-background flex flex-col antialiased">
@@ -61,12 +72,7 @@ const AppContent: React.FC = () => {
               {doctorTab === 'settings' && <ClinicianDashboardView />}
             </>
           ) : (
-            <>
-              {patientTab === 'home' && <PatientDashboardView />}
-              {patientTab === 'my-results' && <PatientReportView />}
-              {patientTab === 'consult' && <PatientDashboardView />}
-              {patientTab === 'profile' && <PatientProfileView />}
-            </>
+            <PatientPortalView />
           )}
         </main>
       </div>
@@ -74,10 +80,14 @@ const AppContent: React.FC = () => {
       {/* Portal-Specific Mobile Bottom Navigation Bar */}
       {portal === 'doctor' ? <DoctorBottomNav /> : <PatientBottomNav />}
 
-      {/* Global Modals & Notifications */}
-      <AddPatientModal />
-      <TeleconsultModal />
-      <ExplainResultModal />
+      {/* Global Modals & Notifications - Only for Doctor Portal */}
+      {portal === 'doctor' && (
+        <>
+          <AddPatientModal />
+          <TeleconsultModal />
+          <ExplainResultModal />
+        </>
+      )}
       <Toast />
     </div>
   );

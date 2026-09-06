@@ -68,18 +68,22 @@ async def process_screening_submission(
     patient_id: Optional[str] = None,
     contact_number: Optional[str] = None,
     medical_history: Optional[str] = None,
-    base_url: str = ""
+    base_url: str = "",
+    doctor_id: Optional[str] = None,
+    doctor_name: Optional[str] = None
 ) -> ScreeningResponse:
     """
     Main workflow:
-    1. Stores/updates patient record in PostgreSQL
+    1. Stores/updates patient record in PostgreSQL linked to doctor
     2. Saves uploaded image/video file to storage
     3. If video, extracts keyframe image
     4. Runs MATLAB AI model inference (or fallback engine)
     5. Saves screening result into PostgreSQL DB
     6. Formats response with prediction JSON and accessible static image URLs
     """
-    # 1. Store or retrieve Patient in DB
+    doc_id = doctor_id or "DOC-ANITA"
+
+    # 1. Store or retrieve Patient in DB (linked to this doctor)
     patient = get_or_create_patient(
         db=db,
         patient_id=patient_id,
@@ -88,7 +92,8 @@ async def process_screening_submission(
         age=age,
         gender=gender,
         contact_number=contact_number,
-        medical_history=medical_history
+        medical_history=medical_history,
+        doctor_id=doc_id
     )
 
     # 2. Save file
@@ -159,6 +164,7 @@ async def process_screening_submission(
     db_screening = Screening(
         screening_id=screening_id,
         patient_id=patient.patient_id,
+        doctor_id=doc_id,
         media_type=media_type,
         original_filename=file.filename or uploaded_file_path.name,
         original_media_path=str(uploaded_file_path.resolve()),
@@ -178,6 +184,7 @@ async def process_screening_submission(
         overlay_path=db_overlay,
         review_status=db_review_status,
         review_notes=db_review_notes,
+        verified_by=doctor_name or (patient.doctor.name if patient.doctor else None) or "Treating Clinician",
         raw_ai_output=ai_raw_output
     )
 
@@ -245,10 +252,12 @@ def format_screening_response(
             detected_lesions=raw_expl.get("detected_lesions", None)
         )
 
+    rev_doctor_name = screening.verified_by or (screening.doctor.name if screening.doctor else ((patient.doctor.name if patient and patient.doctor else None) or "Treating Clinician"))
+    rev_hospital = (screening.doctor.hospital if screening.doctor and screening.doctor.hospital else None) or (patient.doctor.hospital if patient and patient.doctor and patient.doctor.hospital else None) or "District Hospital Eye Care Centre"
     review_out = ClinicianReviewOut(
         verified=screening.review_status == "verified",
-        verified_by=screening.verified_by or "Dr. Anita",
-        doctor_hospital="District Hospital",
+        verified_by=rev_doctor_name,
+        doctor_hospital=rev_hospital,
         date=screening.verified_at.strftime("%Y-%m-%d %H:%M") if screening.verified_at else None,
         notes=screening.review_notes,
         status=screening.review_status or "pending"
@@ -272,6 +281,7 @@ def format_screening_response(
         status=status,
         screening_id=screening.screening_id,
         patient_id=screening.patient_id,
+        doctor_id=screening.doctor_id,
         patient=patient_out,
         dataset=screening.dataset or "APTOS 2019",
         model=screening.model_name or "ResNet-18",
@@ -288,48 +298,66 @@ def format_screening_response(
         generated_at=screening.created_at.strftime("%Y-%m-%d %H:%M:%S") if screening.created_at else ""
     )
 
-def get_screening_by_id(db: Session, screening_id: str) -> Optional[Screening]:
-    return db.query(Screening).filter(Screening.screening_id == screening_id).first()
+def get_screening_by_id(db: Session, screening_id: str, doctor_id: Optional[str] = None) -> Optional[Screening]:
+    query = db.query(Screening).filter(Screening.screening_id == screening_id)
+    if doctor_id:
+        query = query.filter(Screening.doctor_id == doctor_id)
+    return query.first()
 
-def get_screenings_by_patient_id(db: Session, patient_id: str) -> List[Screening]:
-    return db.query(Screening).filter(Screening.patient_id == patient_id).order_by(Screening.created_at.desc()).all()
+def get_screenings_by_patient_id(db: Session, patient_id: str, doctor_id: Optional[str] = None) -> List[Screening]:
+    query = db.query(Screening).filter(Screening.patient_id == patient_id)
+    if doctor_id:
+        query = query.filter(Screening.doctor_id == doctor_id)
+    return query.order_by(Screening.created_at.desc()).all()
 
-def list_screenings(db: Session, skip: int = 0, limit: int = 50) -> List[Screening]:
-    return db.query(Screening).order_by(Screening.created_at.desc()).offset(skip).limit(limit).all()
+def list_screenings(db: Session, doctor_id: Optional[str] = None, skip: int = 0, limit: int = 50) -> List[Screening]:
+    query = db.query(Screening)
+    if doctor_id:
+        query = query.filter(Screening.doctor_id == doctor_id)
+    return query.order_by(Screening.created_at.desc()).offset(skip).limit(limit).all()
 
 def update_screening_review(
     db: Session,
     screening_id: str,
     notes: Optional[str] = None,
     status: str = "verified",
-    verified_by: Optional[str] = "Dr. Anita"
+    verified_by: Optional[str] = None,
+    doctor_id: Optional[str] = None
 ) -> Optional[Screening]:
-    screening = get_screening_by_id(db, screening_id)
+    screening = get_screening_by_id(db, screening_id, doctor_id=doctor_id)
     if not screening:
         return None
     screening.review_status = status
     if notes is not None:
         screening.review_notes = notes
-    if verified_by is not None:
+    if verified_by:
         screening.verified_by = verified_by
+    elif not screening.verified_by and screening.doctor:
+        screening.verified_by = screening.doctor.name
     from datetime import datetime, timezone
     screening.verified_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(screening)
     return screening
 
-def get_screening_metrics(db: Session) -> dict:
+def get_screening_metrics(db: Session, doctor_id: Optional[str] = None) -> dict:
     from backend.app.models.patient import Patient
-    total_patients_count = db.query(Patient).count()
-    total_screenings_count = db.query(Screening).count()
-    pending_reviews_count = db.query(Screening).filter(Screening.review_status != "verified").count()
-    low_confidence_count = db.query(Screening).filter(Screening.confidence < 0.85).count()
+    pat_query = db.query(Patient)
+    scr_query = db.query(Screening)
+    if doctor_id:
+        pat_query = pat_query.filter(Patient.doctor_id == doctor_id)
+        scr_query = scr_query.filter(Screening.doctor_id == doctor_id)
+
+    total_patients_count = pat_query.count()
+    total_screenings_count = scr_query.count()
+    pending_reviews_count = scr_query.filter(Screening.review_status != "verified").count()
+    low_confidence_count = scr_query.filter(Screening.confidence < 0.85).count()
 
     return {
-        "total_patients": f"{max(total_patients_count, 1240):,}",
-        "todays_screenings": max(total_screenings_count, 42),
-        "todays_screenings_delta": "+5 since morning",
-        "pending_reviews": max(pending_reviews_count, 12),
-        "low_confidence_cases": max(low_confidence_count, 5),
-        "low_confidence_note": "Requires clinician check"
+        "total_patients": f"{total_patients_count:,}",
+        "todays_screenings": total_screenings_count,
+        "todays_screenings_delta": "+0 today" if total_screenings_count == 0 else f"+{total_screenings_count} recorded",
+        "pending_reviews": pending_reviews_count,
+        "low_confidence_cases": low_confidence_count,
+        "low_confidence_note": "Requires clinician check" if low_confidence_count > 0 else "All cases verified"
     }

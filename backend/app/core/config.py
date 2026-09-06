@@ -7,8 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 PROJECT_ROOT = BASE_DIR
 
-# Load .env file into environment from project root
-load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=True)
+# Load .env file into environment from project root if not already set
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=False)
 
 def _get_database_url() -> str:
     db_env = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/storage/dr_screening_fallback.db")

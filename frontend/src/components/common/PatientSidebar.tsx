@@ -1,6 +1,5 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
-import { PatientTab } from '../../types';
 import { PATIENT_PROFILE } from '../../data/mockData';
 
 interface PatientSidebarProps {
@@ -12,21 +11,16 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
   isMobileDrawerOpen = false,
   onCloseMobileDrawer,
 }) => {
-  const { patientTab, setPatientTab, setIsTeleconsultModalOpen, language } = usePortal();
+  const { currentUser, language, logout } = usePortal();
 
-  const navItems: { id: PatientTab; label: string; labelHi: string; icon: string }[] = [
-    { id: 'home', label: 'Home', labelHi: 'होम', icon: 'home' },
-    { id: 'my-results', label: 'My Results', labelHi: 'मेरे परिणाम', icon: 'visibility' },
-    { id: 'consult', label: 'Consult', labelHi: 'परामर्श', icon: 'medical_services' },
-    { id: 'profile', label: 'Profile', labelHi: 'प्रोफाइल', icon: 'person' },
+  const patientName = currentUser?.patient?.name || PATIENT_PROFILE.name;
+  const patientId = currentUser?.patient?.patientId || PATIENT_PROFILE.id;
+
+  const navItems = [
+    { id: 'reports', label: 'Reports', labelHi: 'रिपोर्ट्स', icon: 'description' },
   ];
 
-  const handleNavClick = (tab: PatientTab) => {
-    if (tab === 'consult') {
-      setIsTeleconsultModalOpen(true);
-    } else {
-      setPatientTab(tab);
-    }
+  const handleNavClick = () => {
     if (onCloseMobileDrawer) onCloseMobileDrawer();
   };
 
@@ -37,37 +31,32 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
         <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary-container/30 shadow-sm flex-shrink-0">
           <img
             src={PATIENT_PROFILE.avatar}
-            alt="Naresh Kumar"
+            alt={patientName}
             className="w-full h-full object-cover"
           />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="font-headline-md text-headline-md text-primary font-bold truncate">
-            {language === 'hi' ? PATIENT_PROFILE.nameHi : PATIENT_PROFILE.name}
+            {patientName}
           </h2>
           <p className="font-label-sm text-xs text-on-surface-variant truncate">
-            ID: {PATIENT_PROFILE.id}
+            ID: {patientId}
           </p>
         </div>
       </div>
 
-      {/* Nav List */}
+      {/* Nav List - Reports section ONLY (Point 3) */}
       <div className="flex flex-col gap-2 flex-grow">
         {navItems.map((item) => {
-          const isActive = patientTab === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className={`flex items-center gap-3 px-4 py-3 h-touch-target-min rounded-lg transition-colors text-left ${
-                isActive
-                  ? 'bg-secondary-container text-on-secondary-container font-bold shadow-sm'
-                  : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'
-              }`}
+              onClick={handleNavClick}
+              className="flex items-center gap-3 px-4 py-3 h-touch-target-min rounded-lg transition-colors text-left bg-secondary-container text-on-secondary-container font-bold shadow-sm"
             >
               <span
-                className={`material-symbols-outlined text-[22px] ${isActive ? 'fill' : ''}`}
-                style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                className="material-symbols-outlined text-[22px] fill"
+                style={{ fontVariationSettings: "'FILL' 1" }}
               >
                 {item.icon}
               </span>
@@ -79,15 +68,30 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
         })}
       </div>
 
-      {/* Footer Support info */}
-      <div className="mt-auto p-3.5 bg-surface-container-low rounded-xl border border-surface-container text-xs text-on-surface-variant">
-        <div className="flex items-center gap-2 text-primary font-bold mb-1">
-          <span className="material-symbols-outlined text-[18px]">support_agent</span>
-          <span>{language === 'hi' ? 'हेल्पलाइन' : 'Patient Care Line'}</span>
+      {/* Footer Support info & Logout */}
+      <div className="mt-auto space-y-3">
+        <div className="p-3.5 bg-surface-container-low rounded-xl border border-surface-container text-xs text-on-surface-variant">
+          <div className="flex items-center gap-2 text-primary font-bold mb-1">
+            <span className="material-symbols-outlined text-[18px]">support_agent</span>
+            <span>{language === 'hi' ? 'हेल्पलाइन' : 'Patient Care Line'}</span>
+          </div>
+          <p className="text-[11px] leading-relaxed">
+            Toll-free 24/7 AI Eye Screening Support: <span className="font-bold text-primary">1800-419-3333</span>
+          </p>
         </div>
-        <p className="text-[11px] leading-relaxed">
-          Toll-free 24/7 AI Eye Screening Support: <span className="font-bold text-primary">1800-419-3333</span>
-        </p>
+
+        <button
+          onClick={() => {
+            if (onCloseMobileDrawer) onCloseMobileDrawer();
+            logout();
+          }}
+          className="w-full min-h-[44px] px-4 flex items-center gap-3 text-error hover:bg-error-container/30 rounded-lg text-left transition-colors cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[20px]">logout</span>
+          <span className="font-label-md text-label-md font-semibold">
+            {language === 'hi' ? 'साइन आउट' : 'Sign Out'}
+          </span>
+        </button>
       </div>
     </div>
   );

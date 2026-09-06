@@ -49,11 +49,12 @@ export const PatientReportView: React.FC = () => {
   };
 
   const handleShare = () => {
+    const verifiedDoctor = currentScreening.review.verifiedBy || 'Treating Clinician';
     if (navigator.share) {
       navigator
         .share({
           title: 'Drishtikon Eye Screening Report',
-          text: `Drishtikon DR Screening Report for ${currentScreening.patientName} (${currentScreening.screeningDate}): ${currentScreening.aiResult.finding}. Verified by Dr. Anita.`,
+          text: `Drishtikon DR Screening Report for ${currentScreening.patientName} (${currentScreening.screeningDate}): ${currentScreening.aiResult.finding}. Verified by ${verifiedDoctor}.`,
           url: window.location.href,
         })
         .catch(() => {});
@@ -182,7 +183,7 @@ export const PatientReportView: React.FC = () => {
         {/* Doctor verification badge */}
         <div className="flex items-center justify-between pt-2 border-t border-surface-container text-xs text-on-surface-variant">
           <span>
-            <strong>Verified By:</strong> {currentScreening.review.verifiedBy || 'Dr. Anita (Consultant Vitreoretinal Specialist)'}
+            <strong>Verified By:</strong> {currentScreening.review.verifiedBy || 'Treating Clinician'}
           </span>
           <span>
             <strong>Status:</strong> {currentScreening.review.status.toUpperCase()}

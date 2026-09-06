@@ -7,7 +7,7 @@ import { getTranslation } from '../../data/translations';
 import { GradCamReadingBar } from '../common/GradCamReadingBar';
 
 export const NewScreeningView: React.FC = () => {
-  const { navigateToApproveReport, showToast, language, setCurrentScreening } = usePortal();
+  const { navigateToApproveReport, showToast, language, setCurrentScreening, currentUser, refreshData } = usePortal();
 
   // Eye selection
   const [selectedEye, setSelectedEye] = useState<'OS' | 'OD' | 'Both'>('OS');
@@ -192,6 +192,25 @@ export const NewScreeningView: React.FC = () => {
       return;
     }
 
+    // Validate Mandatory Contact / Phone Number (Point 2)
+    const cleanPhone = contactNumber.replace(/\D/g, '');
+    if (!contactNumber.trim()) {
+      showToast(
+        language === 'hi'
+          ? 'फोन नंबर अनिवार्य है (मरीज पोर्टल लॉगिन के लिए आवश्यक)।'
+          : 'Phone number is mandatory (required for patient portal login).'
+      );
+      return;
+    }
+    if (cleanPhone.length < 10) {
+      showToast(
+        language === 'hi'
+          ? 'कृपया कम से कम 10 अंकों का मान्य फोन नंबर दर्ज करें।'
+          : 'Please enter a valid phone number with at least 10 digits.'
+      );
+      return;
+    }
+
     // Check pre-diagnostic quality result (CHANGE 1)
     if (qualityAssessment && !qualityAssessment.isAcceptable && !qualityOverride) {
       showToast(
@@ -235,6 +254,12 @@ export const NewScreeningView: React.FC = () => {
       if (patientId) formData.append('patient_id', patientId.trim());
       if (contactNumber) formData.append('contact_number', contactNumber.trim());
       if (medicalHistory) formData.append('medical_history', medicalHistory.trim());
+      if (currentUser?.doctor?.doctorId) {
+        formData.append('doctor_id', currentUser.doctor.doctorId);
+      }
+      if (currentUser?.doctor?.name) {
+        formData.append('doctor_name', currentUser.doctor.name);
+      }
 
       // Initiate backend submission concurrently
       let submissionRecord: ScreeningRecord | null = null;
@@ -319,6 +344,7 @@ export const NewScreeningView: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 800));
 
         setCompletedScreening(record);
+        refreshData();
 
         showToast(
           language === 'hi'
@@ -1252,9 +1278,14 @@ export const NewScreeningView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-on-surface-variant block mb-1">Contact Number</label>
+                <label className="text-[11px] font-bold text-on-surface-variant block mb-1">
+                  Contact Number <span className="text-red-500 font-bold" title="Mandatory field">*</span>
+                </label>
                 <input
-                  type="text"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
                   placeholder="+91 98765 00000"
