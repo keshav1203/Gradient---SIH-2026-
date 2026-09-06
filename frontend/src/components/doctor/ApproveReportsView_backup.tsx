@@ -19,7 +19,6 @@ export const ApproveReportsView: React.FC = () => {
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(65);
   const [clinicalNotes, setClinicalNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [severityDisplayMode, setSeverityDisplayMode] = useState<'lesions' | 'multi_probability'>('lesions');
 
   const handleExitReview = () => {
     setSelectedScreeningId('');
@@ -386,192 +385,46 @@ export const ApproveReportsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Severity & Lesion Detection Section (Replacing multiple percentages) */}
-              <div className="mt-4 pt-3 border-t border-surface-container">
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    {severityDisplayMode === 'lesions' ? 'Severity & Lesion Detection' : '5-Class Softmax Probabilities'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSeverityDisplayMode(m => m === 'lesions' ? 'multi_probability' : 'lesions')}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80 bg-surface-container hover:bg-surface-container-high px-2 py-0.5 rounded transition-colors"
-                    title="Toggle view between Lesion Detection and 5-Class Probabilities"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">swap_horiz</span>
-                    <span>{severityDisplayMode === 'lesions' ? 'View 5-Class %' : 'View Lesion Detection'}</span>
-                  </button>
-                </div>
-
-                {severityDisplayMode === 'lesions' ? (
-                  <div className="space-y-3">
-                    {/* 1. Single Highest-Percentage Severity Class Main Result */}
-                    {(() => {
-                      const grade = reviewingScreening.aiResult.grade ?? 0;
-                      const confidence = reviewingScreening.aiResult.confidence ?? 0;
-                      const severityLabels: Record<number, string> = {
-                        0: 'No Diabetic Retinopathy (No DR)',
-                        1: 'Mild NPDR',
-                        2: 'Moderate NPDR',
-                        3: 'Severe NPDR',
-                        4: 'Proliferative DR (PDR)',
-                      };
-                      const topSeverityName = severityLabels[grade] || reviewingScreening.aiResult.finding || 'Diabetic Retinopathy';
-
-                      const hasLesions = grade > 0 || Object.values(lesions).some(v => v === 'Detected');
-
-                      const lesionTypesList: { name: string; clinicalTerm: string; present: boolean }[] = [
-                        {
-                          name: 'Microaneurysms',
-                          clinicalTerm: 'Focal microvascular dilations',
-                          present: lesions.microaneurysms === 'Detected' || grade >= 1
-                        },
-                        {
-                          name: 'Retinal Hemorrhages',
-                          clinicalTerm: 'Dot / blot intraretinal hemorrhages',
-                          present: lesions.hemorrhages === 'Detected' || grade >= 2
-                        },
-                        {
-                          name: 'Hard Exudates',
-                          clinicalTerm: 'Lipid transudates / intraretinal deposits',
-                          present: lesions.exudates === 'Detected' || grade >= 2
-                        },
-                        {
-                          name: 'Cotton Wool Spots',
-                          clinicalTerm: 'Nerve fiber layer micro-infarctions',
-                          present: grade >= 2 && grade < 4
-                        },
-                        {
-                          name: 'Neovascularization',
-                          clinicalTerm: 'Proliferative abnormal neovessels (NVD/NVE)',
-                          present: lesions.neovascularization === 'Detected' || grade >= 4
-                        }
-                      ];
-
-                      const detectedTypes = lesionTypesList.filter(l => l.present);
-
-                      return (
-                        <>
-                          {/* Single Top Severity Result */}
-                          <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
-                                Primary Predicted Grade
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${grade === 0 ? 'bg-[#2E7D32]' : grade === 1 ? 'bg-[#F57F17]' : grade === 2 ? 'bg-[#E65100]' : 'bg-[#C62828]'}`} />
-                                <span className="font-bold text-sm text-primary">
-                                  {topSeverityName}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[10px] font-mono font-bold text-on-surface-variant uppercase tracking-wider block">
-                                Model Confidence
-                              </span>
-                              <span className="font-mono font-bold text-sm text-primary">
-                                {confidence}%
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Lesion Detection Section */}
-                          <div className="p-3.5 rounded-xl bg-surface-container-lowest border border-surface-container space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span className="material-symbols-outlined text-[17px] text-primary">biotech</span>
-                                <span className="text-xs font-bold text-primary">Lesions Present:</span>
-                              </div>
-                              {hasLesions ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FFE082] text-[#E65100] border border-[#FFA000]/30">
-                                  <span className="material-symbols-outlined text-[14px]">warning</span>
-                                  Yes — Detected
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#C8E6C9] text-[#2E7D32] border border-[#2E7D32]/30">
-                                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                                  No — None Detected
-                                </span>
-                              )}
-                            </div>
-
-                            {/* List of Detected Lesion Types */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                                  {hasLesions ? 'Detected Lesion Categories' : 'Retinal Vasculature Status'}
-                                </span>
-                                {hasLesions && (
-                                  <span className="text-[10px] font-mono text-outline">
-                                    {detectedTypes.length} types identified
-                                  </span>
-                                )}
-                              </div>
-
-                              {hasLesions && detectedTypes.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                  {detectedTypes.map((lesion) => (
-                                    <div
-                                      key={lesion.name}
-                                      className="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs"
-                                    >
-                                      <span className="w-1.5 h-1.5 rounded-full bg-error shrink-0" />
-                                      <div className="truncate">
-                                        <span className="font-bold text-primary text-[11px] block truncate">
-                                          {lesion.name}
-                                        </span>
-                                        <span className="text-[10px] text-on-surface-variant block truncate">
-                                          {lesion.clinicalTerm}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="p-2 rounded-lg bg-surface-container-low border border-surface-container text-[11px] text-[#2E7D32] flex items-center gap-1.5">
-                                  <span className="material-symbols-outlined text-[14px]">verified</span>
-                                  <span>No microaneurysms, hemorrhages, or exudates observed across the retinal field.</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
+              {/* 5-Class Probability Distribution from Model */}
+              {reviewingScreening.aiResult.classProbabilities && (
+                <div className="mt-4 pt-3 border-t border-surface-container">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                      5-Class Softmax Probabilities
+                    </span>
+                    <span className="text-[10px] font-mono text-outline">
+                      ResNet-18
+                    </span>
                   </div>
-                ) : (
-                  /* Original 5-Class Probability Distribution from Model */
-                  reviewingScreening.aiResult.classProbabilities ? (
-                    <div className="space-y-1.5 text-xs">
-                      {Object.entries(reviewingScreening.aiResult.classProbabilities).map(([cName, prob]) => {
-                        const pPercent = typeof prob === 'number' ? Math.round(prob * 100) : 0;
-                        const isTop = (cName === 'No_DR' && reviewingScreening.aiResult.grade === 0) ||
-                                      (cName === 'Mild' && reviewingScreening.aiResult.grade === 1) ||
-                                      (cName === 'Moderate' && reviewingScreening.aiResult.grade === 2) ||
-                                      (cName === 'Severe' && reviewingScreening.aiResult.grade === 3) ||
-                                      (cName === 'Proliferative_DR' && reviewingScreening.aiResult.grade === 4);
-                        const displayName = cName.replace('_', ' ');
-                        return (
-                          <div key={cName} className="flex items-center justify-between gap-2">
-                            <span className={`w-32 truncate text-[11px] ${isTop ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
-                              {displayName}
-                            </span>
-                            <div className="flex-1 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                              <div
-                                className={`h-full ${isTop ? 'bg-primary' : 'bg-outline-variant'}`}
-                                style={{ width: `${Math.max(pPercent, 2)}%` }}
-                              />
-                            </div>
-                            <span className={`w-9 text-right font-mono text-[11px] ${isTop ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
-                              {pPercent}%
-                            </span>
+                  <div className="space-y-1.5 text-xs">
+                    {Object.entries(reviewingScreening.aiResult.classProbabilities).map(([cName, prob]) => {
+                      const pPercent = typeof prob === 'number' ? Math.round(prob * 100) : 0;
+                      const isTop = (cName === 'No_DR' && reviewingScreening.aiResult.grade === 0) ||
+                                    (cName === 'Mild' && reviewingScreening.aiResult.grade === 1) ||
+                                    (cName === 'Moderate' && reviewingScreening.aiResult.grade === 2) ||
+                                    (cName === 'Severe' && reviewingScreening.aiResult.grade === 3) ||
+                                    (cName === 'Proliferative_DR' && reviewingScreening.aiResult.grade === 4);
+                      const displayName = cName.replace('_', ' ');
+                      return (
+                        <div key={cName} className="flex items-center justify-between gap-2">
+                          <span className={`w-32 truncate text-[11px] ${isTop ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
+                            {displayName}
+                          </span>
+                          <div className="flex-1 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${isTop ? 'bg-primary' : 'bg-outline-variant'}`}
+                              style={{ width: `${Math.max(pPercent, 2)}%` }}
+                            />
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : null
-                )}
-              </div>
+                          <span className={`w-9 text-right font-mono text-[11px] ${isTop ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
+                            {pPercent}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* AI Clinical Recommendation */}

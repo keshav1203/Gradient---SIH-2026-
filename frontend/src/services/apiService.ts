@@ -599,11 +599,81 @@ export const apiService = {
     return true;
   },
 
-  async addPatient(patientData: Omit<Patient, 'id' | 'screeningsCount' | 'latestScreeningId' | 'lastScreeningDate'>): Promise<Patient> {
+  async generateUniquePatientId(prefix: string = 'PT'): Promise<string> {
+    try {
+      const res = await fetch(`${API_BASE}/patients/generate-id?prefix=${encodeURIComponent(prefix)}`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.patient_id) {
+          return data.patient_id;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not generate unique patient ID from API, falling back to local computation:', e);
+    }
+
+    // Fallback: search patientsStore and generate next sequential non-colliding ID
+    let maxNum = 1000;
+    for (const p of patientsStore) {
+      const match = p.id.match(/\d+/g);
+      if (match) {
+        for (const m of match) {
+          const val = parseInt(m, 10);
+          if (val >= 1000 && val < 999999 && val > maxNum) {
+            maxNum = val;
+          }
+        }
+      }
+    }
+    return `${prefix}-${maxNum + 1}`;
+  },
+
+  async checkPatientIdAvailable(patientId: string): Promise<{ available: boolean; message?: string; existingPatient?: any }> {
+    const cleanId = patientId.trim();
+    if (!cleanId) {
+      return { available: false, message: 'Patient ID cannot be empty.' };
+    }
+    try {
+      const res = await fetch(`${API_BASE}/patients/check-id/${encodeURIComponent(cleanId)}`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          available: !!data.available,
+          message: data.message,
+          existingPatient: data.existing_patient,
+        };
+      }
+    } catch (e) {
+      console.warn('Could not check patient ID availability via API:', e);
+    }
+    // Fallback check against local store
+    const existing = patientsStore.find(p => p.id.toLowerCase() === cleanId.toLowerCase());
+    if (existing) {
+      return {
+        available: false,
+        message: `Patient ID '${cleanId}' is already assigned to ${existing.name}.`,
+        existingPatient: { patient_id: existing.id, name: existing.name }
+      };
+    }
+    return { available: true, message: `Patient ID '${cleanId}' is available.` };
+  },
+
+  async addPatient(patientData: Omit<Patient, 'id' | 'screeningsCount' | 'latestScreeningId' | 'lastScreeningDate'> & { id?: string }): Promise<Patient> {
     const names = patientData.name.trim().split(' ');
     const firstName = names[0] || 'Patient';
     const lastName = names.slice(1).join(' ') || 'User';
-    const patId = `PAT-${Math.floor(1000 + Math.random() * 9000)}`;
+    let patId = (patientData.id || '').trim();
+    if (!patId) {
+      try {
+        patId = await this.generateUniquePatientId('PT');
+      } catch {
+        patId = `PT-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+    }
 
     const res = await fetch(`${API_BASE}/patients/`, {
       method: 'POST',

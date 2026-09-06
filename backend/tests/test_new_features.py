@@ -261,3 +261,124 @@ def test_screening_stores_patient_under_doctor():
     anita_patients = client.get("/api/v1/patients/", headers={"Authorization": f"Bearer {anita_token}"}).json()
     anita_pat_ids = [p["patient_id"] for p in anita_patients]
     assert unique_pat_id not in anita_pat_ids
+
+def test_patient_id_uniqueness_and_generation():
+    # Login as Dr. Anita
+    anita_res = client.post("/api/v1/auth/doctor/login", json={
+        "doctor_id": "DOC-ANITA",
+        "password": "15081980"
+    })
+    token = anita_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Generate unique patient ID
+    gen_res = client.get("/api/v1/patients/generate-id?prefix=PT", headers=headers)
+    assert gen_res.status_code == 200
+    gen_data = gen_res.json()
+    assert "patient_id" in gen_data
+    generated_id = gen_data["patient_id"]
+    assert generated_id.startswith("PT-")
+
+    # 2. Check generated ID availability -> should be available
+    check_res = client.get(f"/api/v1/patients/check-id/{generated_id}", headers=headers)
+    assert check_res.status_code == 200
+    assert check_res.json()["available"] is True
+
+    # 3. Create a patient using this unique ID
+    create_res = client.post(
+        "/api/v1/patients/",
+        headers=headers,
+        json={
+            "patient_id": generated_id,
+            "first_name": "Kavita",
+            "last_name": "Sharma",
+            "age": 42,
+            "gender": "Female",
+            "contact_number": "9811122233",
+            "medical_history": "Mild hypertension"
+        }
+    )
+    assert create_res.status_code == 201
+    created_pat = create_res.json()
+    assert created_pat["patient_id"] == generated_id
+
+    # 4. Check availability again -> now should NOT be available
+    check_res2 = client.get(f"/api/v1/patients/check-id/{generated_id}", headers=headers)
+    assert check_res2.status_code == 200
+    assert check_res2.json()["available"] is False
+    assert "already assigned" in check_res2.json()["message"]
+
+    # 5. Attempt to create another patient with the EXACT SAME patient ID -> MUST return 409 Conflict
+    dup_res = client.post(
+        "/api/v1/patients/",
+        headers=headers,
+        json={
+            "patient_id": generated_id,
+            "first_name": "Suresh",
+            "last_name": "Mehta",
+            "age": 60,
+            "gender": "Male",
+            "contact_number": "9844455566",
+            "medical_history": "None"
+        }
+    )
+    assert dup_res.status_code == 409
+    assert "already assigned" in dup_res.json()["detail"] or "must be unique" in dup_res.json()["detail"]
+
+def test_screening_does_not_overwrite_differing_patient_with_same_id():
+    # Login as Dr. Anita
+    anita_res = client.post("/api/v1/auth/doctor/login", json={
+        "doctor_id": "DOC-ANITA",
+        "password": "15081980"
+    })
+    token = anita_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # First, create Patient A with a unique ID
+    id_a = client.get("/api/v1/patients/generate-id?prefix=PT", headers=headers).json()["patient_id"]
+    client.post(
+        "/api/v1/patients/",
+        headers=headers,
+        json={
+            "patient_id": id_a,
+            "first_name": "Original",
+            "last_name": "Person",
+            "age": 30,
+            "gender": "Female",
+            "contact_number": "9111111111",
+            "medical_history": "None"
+        }
+    )
+
+    # Now upload a screening with the same ID 'id_a', but representing a different person (e.g., 'New Patient', phone '9999999999')
+    files = {"file": ("fundus_collision.png", create_dummy_image_bytes(), "image/png")}
+    screening_res = client.post(
+        "/api/v1/screenings/process",
+        headers=headers,
+        files=files,
+        data={
+            "patient_id": id_a,
+            "first_name": "Completely",
+            "last_name": "Different",
+            "age": "65",
+            "gender": "Male",
+            "contact_number": "9999999999",
+            "medical_history": "Glaucoma history",
+            "doctor_id": "DOC-ANITA",
+            "doctor_name": "Dr. Anita"
+        }
+    )
+    assert screening_res.status_code == 201
+    res_data = screening_res.json()
+    new_patient_id = res_data["patient"]["patient_id"]
+
+    # Must NOT have overwritten id_a, must have assigned a brand new unique ID!
+    assert new_patient_id != id_a
+
+    # Verify original patient A still exists intact with id_a
+    orig_patient = client.get(f"/api/v1/patients/{id_a}", headers=headers).json()
+    assert orig_patient["first_name"] == "Original"
+    assert orig_patient["last_name"] == "Person"
+    assert orig_patient["patient_id"] == id_a
+
+

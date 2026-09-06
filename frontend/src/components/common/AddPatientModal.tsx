@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { apiService } from '../../services/apiService';
 import { RiskLevel, ReviewStatus } from '../../types';
@@ -11,6 +11,7 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded
   const { isAddPatientModalOpen, setIsAddPatientModalOpen, showToast, language, refreshData } = usePortal();
 
   const [formData, setFormData] = useState({
+    patientId: '',
     name: '',
     nameHi: '',
     age: '',
@@ -21,20 +22,76 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded
     reviewStatus: 'pending' as ReviewStatus,
   });
 
+  const [patientIdStatus, setPatientIdStatus] = useState<{ isChecking: boolean; available: boolean | null; message?: string }>({ isChecking: false, available: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isAddPatientModalOpen) {
+      setPatientIdStatus({ isChecking: true, available: null });
+      apiService.generateUniquePatientId('PT').then(newId => {
+        setFormData(prev => ({ ...prev, patientId: newId }));
+        setPatientIdStatus({ isChecking: false, available: true, message: 'Guaranteed unique ID' });
+      }).catch(() => {
+        setPatientIdStatus({ isChecking: false, available: null });
+      });
+    }
+  }, [isAddPatientModalOpen]);
+
+  const handleRegeneratePatientId = async () => {
+    setPatientIdStatus({ isChecking: true, available: null });
+    try {
+      const newId = await apiService.generateUniquePatientId('PT');
+      setFormData(prev => ({ ...prev, patientId: newId }));
+      setPatientIdStatus({ isChecking: false, available: true, message: 'Guaranteed unique ID' });
+    } catch {
+      setPatientIdStatus({ isChecking: false, available: null });
+    }
+  };
+
+  const handleCheckPatientId = async (idToCheck: string) => {
+    const trimmed = idToCheck.trim();
+    if (!trimmed) {
+      setPatientIdStatus({ isChecking: false, available: false, message: 'Patient ID cannot be empty' });
+      return;
+    }
+    setPatientIdStatus({ isChecking: true, available: null });
+    try {
+      const result = await apiService.checkPatientIdAvailable(trimmed);
+      setPatientIdStatus({
+        isChecking: false,
+        available: result.available,
+        message: result.message
+      });
+    } catch {
+      setPatientIdStatus({ isChecking: false, available: null });
+    }
+  };
 
   if (!isAddPatientModalOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.age) {
-      showToast('Please fill in required fields (Name & Age)');
+    if (!formData.name || !formData.age || !formData.patientId.trim()) {
+      showToast('Please fill in required fields (Patient ID, Name & Age)');
       return;
+    }
+
+    // Verify Patient ID is unique
+    try {
+      const check = await apiService.checkPatientIdAvailable(formData.patientId.trim());
+      if (!check.available) {
+        showToast(check.message || `Patient ID '${formData.patientId}' is already assigned.`);
+        setPatientIdStatus({ isChecking: false, available: false, message: check.message });
+        return;
+      }
+    } catch {
+      // offline
     }
 
     setIsSubmitting(true);
     try {
       await apiService.addPatient({
+        id: formData.patientId.trim(),
         name: formData.name,
         nameHi: formData.nameHi || formData.name,
         age: parseInt(formData.age) || 45,
@@ -50,6 +107,7 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded
       showToast(language === 'hi' ? 'नया मरीज सफलतापूर्वक जोड़ा गया' : `Patient ${formData.name} added to queue`);
       setIsAddPatientModalOpen(false);
       setFormData({
+        patientId: '',
         name: '',
         nameHi: '',
         age: '',
@@ -59,9 +117,10 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded
         riskLevel: 'medium',
         reviewStatus: 'pending',
       });
+      setPatientIdStatus({ isChecking: false, available: null });
       if (onPatientAdded) onPatientAdded();
-    } catch {
-      showToast('Failed to add patient');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to add patient');
     } finally {
       setIsSubmitting(false);
     }
@@ -96,6 +155,59 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ onPatientAdded
 
         {/* Modal Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+          {/* Patient ID */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-on-surface" htmlFor="patient-id">
+                Patient ID *
+              </label>
+              <button
+                type="button"
+                onClick={handleRegeneratePatientId}
+                title="Generate new unique ID"
+                className="text-[11px] text-primary hover:underline flex items-center gap-0.5 font-medium"
+              >
+                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                <span>Generate Unique ID</span>
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                id="patient-id"
+                type="text"
+                required
+                placeholder="e.g. PT-1001"
+                value={formData.patientId}
+                onChange={(e) => {
+                  setFormData({ ...formData, patientId: e.target.value });
+                  if (patientIdStatus.available !== null) {
+                    setPatientIdStatus({ isChecking: false, available: null });
+                  }
+                }}
+                onBlur={(e) => handleCheckPatientId(e.target.value)}
+                className={`w-full h-11 px-3.5 pr-9 rounded-lg border bg-surface text-on-surface outline-none font-mono text-sm ${
+                  patientIdStatus.available === false
+                    ? 'border-error focus:border-error focus:ring-1 focus:ring-error text-error'
+                    : patientIdStatus.available === true
+                    ? 'border-[#2E7D32] focus:border-[#2E7D32]'
+                    : 'border-secondary-fixed focus:border-primary focus:ring-1 focus:ring-primary'
+                }`}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+                {patientIdStatus.isChecking ? (
+                  <span className="material-symbols-outlined text-[18px] text-outline animate-spin">sync</span>
+                ) : patientIdStatus.available === true ? (
+                  <span className="material-symbols-outlined text-[18px] text-[#2E7D32]">check_circle</span>
+                ) : patientIdStatus.available === false ? (
+                  <span className="material-symbols-outlined text-[18px] text-error">cancel</span>
+                ) : null}
+              </div>
+            </div>
+            {patientIdStatus.available === false && patientIdStatus.message && (
+              <p className="text-[11px] text-error mt-1 leading-tight">{patientIdStatus.message}</p>
+            )}
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="patient-name">
               Full Name *
