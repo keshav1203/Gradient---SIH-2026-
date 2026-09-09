@@ -24,6 +24,7 @@ class PatientChatRequest(BaseModel):
     message: str
     history: Optional[List[PatientChatMessage]] = None
     screening_id: Optional[str] = None
+    language: Optional[str] = "en"
 
 class PatientChatResponse(BaseModel):
     reply: str

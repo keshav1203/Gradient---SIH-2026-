@@ -24,6 +24,7 @@ export const DoctorSidebar: React.FC<DoctorSidebarProps> = ({
     { id: 'upload-images', label: 'Upload Images', labelHi: 'चित्र अपलोड', icon: 'cloud_upload' },
     { id: 'approve-reports', label: 'Approve Report', labelHi: 'रिपोर्ट अनुमोदन', icon: 'fact_check' },
     { id: 'reports', label: 'Reports', labelHi: 'रिपोर्ट्स', icon: 'description' },
+    { id: 'consultations', label: 'Consultations', labelHi: 'परामर्श की सूची', icon: 'event_available' },
   ];
 
   const handleNavClick = (tab: DoctorTab) => {

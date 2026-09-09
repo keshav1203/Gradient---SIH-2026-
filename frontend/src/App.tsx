@@ -20,6 +20,7 @@ import { NewScreeningView } from './components/doctor/NewScreeningView';
 import { ApproveReportsView } from './components/doctor/ApproveReportsView';
 import { AiAnalysisView } from './components/doctor/AiAnalysisView';
 import { ReportsView } from './components/doctor/ReportsView';
+import { DoctorConsultationsView } from './components/doctor/DoctorConsultationsView';
 
 // Patient Views (Reports section only + Groq Chatbot)
 import { PatientPortalView } from './components/patient/PatientPortalView';
@@ -68,6 +69,7 @@ const AppContent: React.FC = () => {
               {doctorTab === 'approve-reports' && <ApproveReportsView />}
               {doctorTab === 'ai-analysis' && <AiAnalysisView />}
               {doctorTab === 'reports' && <ReportsView />}
+              {doctorTab === 'consultations' && <DoctorConsultationsView />}
               {doctorTab === 'help' && <ClinicianDashboardView />}
               {doctorTab === 'settings' && <ClinicianDashboardView />}
             </>

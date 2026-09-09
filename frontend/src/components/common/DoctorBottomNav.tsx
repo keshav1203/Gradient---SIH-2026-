@@ -10,6 +10,7 @@ export const DoctorBottomNav: React.FC = () => {
     { id: 'patient-queue', label: 'Queue', labelHi: 'कतार', icon: 'group' },
     { id: 'upload-images', label: 'Screening', labelHi: 'स्क्रीनिंग', icon: 'cloud_upload' },
     { id: 'approve-reports', label: 'Approve', labelHi: 'अनुमोदन', icon: 'fact_check' },
+    { id: 'consultations', label: 'Consult', labelHi: 'परामर्श', icon: 'event_available' },
     { id: 'reports', label: 'Reports', labelHi: 'रिपोर्ट', icon: 'description' },
   ];
 

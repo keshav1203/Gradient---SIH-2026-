@@ -1,4 +1,4 @@
-import { Patient, ScreeningRecord, ReviewStatus, Appointment, RiskLevel, LesionFindings, DetailedQualityMetrics, QualityAssessmentResult, AiDiagnosticResult, AuthSession, PatientPortalReport, AssistantMessage } from '../types';
+import { Patient, ScreeningRecord, ReviewStatus, Appointment, RiskLevel, LesionFindings, DetailedQualityMetrics, QualityAssessmentResult, AiDiagnosticResult, AuthSession, PatientPortalReport, AssistantMessage, DoctorUser, BookAppointmentPayload } from '../types';
 import { INITIAL_PATIENTS, INITIAL_SCREENINGS, INITIAL_METRICS, RETINAL_ASSETS } from '../data/mockData';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -80,8 +80,11 @@ let metricsStore = { ...INITIAL_METRICS };
 let appointmentsStore: Appointment[] = [
   {
     id: 'APT-101',
+    appointmentId: 'APT-101',
     patientId: 'PT-8924',
     doctorName: 'Dr. Anita',
+    appointmentDate: '2026-09-10',
+    appointmentTime: '11:00 AM',
     date: 'Tomorrow, 11:00 AM',
     time: '11:00 AM',
     type: 'Teleconsultation',
@@ -469,13 +472,13 @@ export const apiService = {
       }));
   },
 
-  async sendPatientChatMessage(message: string, history?: AssistantMessage[]): Promise<{ reply: string; model: string }> {
+  async sendPatientChatMessage(message: string, history?: AssistantMessage[], language?: string): Promise<{ reply: string; model: string }> {
     try {
       const historyPayload = history ? history.map(h => ({ role: h.sender, content: h.text })) : [];
       const res = await fetch(`${API_BASE}/patient/chat`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ message, history: historyPayload })
+        body: JSON.stringify({ message, history: historyPayload, language: language || 'en' })
       });
       if (res.ok) {
         const data = await res.json();
@@ -485,7 +488,9 @@ export const apiService = {
       console.warn("Could not send patient chat message to API:", e);
     }
     return {
-      reply: "Thank you for asking. Based on your retinal scan, microvascular signs have been evaluated. Please consult your treating eye care specialist for tailored clinical guidance.",
+      reply: language === 'hi'
+        ? "पूछने के लिए धन्यवाद। आपकी रेटिना स्कैन के आधार पर सूक्ष्म परिवर्तनों का मूल्यांकन किया गया है। कृपया व्यक्तिगत मार्गदर्शन के लिए अपने नेत्र विशेषज्ञ से परामर्श लें।"
+        : "Thank you for asking. Based on your retinal scan, microvascular signs have been evaluated. Please consult your treating eye care specialist for tailored clinical guidance.",
       model: "Drishtikon Ophthalmologist Assistant"
     };
   },
@@ -740,6 +745,29 @@ export const apiService = {
       // Fallback
     }
     return screeningsStore.find(s => s.id === id);
+  },
+
+  // Fetch a patient screening for consultation review — bypasses doctor-ownership filter
+  async getConsultationScreening(screeningId: string): Promise<ScreeningRecord | undefined> {
+    try {
+      const res = await fetch(`${API_BASE}/doctor/consultations/screening/${screeningId}`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const item = transformScreening(data);
+        const idx = screeningsStore.findIndex(s => s.id === item.id);
+        if (idx !== -1) {
+          screeningsStore[idx] = item;
+        } else {
+          screeningsStore.unshift(item);
+        }
+        return item;
+      }
+    } catch {
+      // Fallback to local store
+    }
+    return screeningsStore.find(s => s.id === screeningId);
   },
 
   async getLatestPatientScreening(patientId: string): Promise<ScreeningRecord | undefined> {
@@ -1005,13 +1033,154 @@ export const apiService = {
     throw new Error('Screening not found');
   },
 
-  // --- APPOINTMENTS ---
+  // --- APPOINTMENTS & CONSULTATIONS ---
+  async getDoctors(): Promise<DoctorUser[]> {
+    try {
+      const res = await fetch(`${API_BASE}/patient/doctors`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((d: any) => ({
+          id: d.id,
+          doctorId: d.doctor_id,
+          name: d.name,
+          dob: d.dob,
+          hospital: d.hospital,
+          department: d.department,
+          email: d.email
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not fetch doctors list from API:", e);
+    }
+    return [
+      { id: 1, doctorId: 'DOC-ANITA', name: 'Dr. Anita Sharma', dob: '15081980', hospital: 'District Hospital Eye Care Centre', department: 'Rural Retinal AI Screening Unit' },
+      { id: 2, doctorId: 'DOC-RAJESH', name: 'Dr. Rajesh Gupta', dob: '01011975', hospital: 'Apex Eye Institute', department: 'Vitreoretinal Clinic' },
+      { id: 3, doctorId: 'DOC-MANU', name: 'Dr. Manu', dob: '10042000', hospital: 'District Hospital Eye Care Centre', department: 'Comprehensive Ophthalmology' },
+      { id: 4, doctorId: 'DOC-KESHAV', name: 'Dr. Keshav', dob: '12032000', hospital: 'Apex Eye Institute', department: 'Retina & Vitreous Services' },
+      { id: 5, doctorId: 'DOC-TRISHA', name: 'Dr. Trisha', dob: '05062000', hospital: 'Community Eye Care Hospital', department: 'Pediatric & Neuro-Ophthalmology' }
+    ];
+  },
+
+  async bookAppointment(payload: BookAppointmentPayload): Promise<Appointment> {
+    try {
+      const res = await fetch(`${API_BASE}/patient/appointments`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          doctor_id: payload.doctorId,
+          appointment_date: payload.appointmentDate,
+          appointment_time: payload.appointmentTime,
+          reason: payload.reason
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          id: data.id,
+          appointmentId: data.appointment_id,
+          patientId: data.patient_id,
+          patientName: data.patient_name,
+          patientAge: data.patient_age,
+          patientGender: data.patient_gender,
+          patientPhone: data.patient_phone,
+          latestScreeningId: data.latest_screening_id,
+          doctorId: data.doctor_id,
+          doctorName: data.doctor_name,
+          appointmentDate: data.appointment_date,
+          appointmentTime: data.appointment_time,
+          reason: data.reason,
+          status: data.status,
+          createdAt: data.created_at
+        };
+      }
+    } catch (e) {
+      console.warn("Could not book appointment via API:", e);
+    }
+    const newAppt: Appointment = {
+      appointmentId: `APT-${Date.now().toString().slice(-4)}`,
+      patientId: 'PT-8924',
+      doctorId: payload.doctorId,
+      appointmentDate: payload.appointmentDate,
+      appointmentTime: payload.appointmentTime,
+      reason: payload.reason,
+      status: 'Confirmed'
+    };
+    appointmentsStore.push(newAppt);
+    return newAppt;
+  },
+
+  async getPatientAppointments(): Promise<Appointment[]> {
+    try {
+      const res = await fetch(`${API_BASE}/patient/appointments`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((a: any) => ({
+          id: a.id,
+          appointmentId: a.appointment_id,
+          patientId: a.patient_id,
+          patientName: a.patient_name,
+          patientAge: a.patient_age,
+          patientGender: a.patient_gender,
+          patientPhone: a.patient_phone,
+          latestScreeningId: a.latest_screening_id,
+          doctorId: a.doctor_id,
+          doctorName: a.doctor_name,
+          appointmentDate: a.appointment_date,
+          appointmentTime: a.appointment_time,
+          reason: a.reason,
+          status: a.status,
+          createdAt: a.created_at
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not fetch patient appointments via API:", e);
+    }
+    return [...appointmentsStore];
+  },
+
+  async getDoctorAppointments(): Promise<Appointment[]> {
+    try {
+      const res = await fetch(`${API_BASE}/doctor/appointments`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((a: any) => ({
+          id: a.id,
+          appointmentId: a.appointment_id,
+          patientId: a.patient_id,
+          patientName: a.patient_name,
+          patientAge: a.patient_age,
+          patientGender: a.patient_gender,
+          patientPhone: a.patient_phone,
+          latestScreeningId: a.latest_screening_id,
+          doctorId: a.doctor_id,
+          doctorName: a.doctor_name,
+          appointmentDate: a.appointment_date,
+          appointmentTime: a.appointment_time,
+          reason: a.reason,
+          status: a.status,
+          createdAt: a.created_at
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not fetch doctor appointments via API:", e);
+    }
+    return [];
+  },
+
   async bookTeleconsultation(patientId: string, date: string, time: string, doctorName?: string): Promise<Appointment> {
     const doc = doctorName || (typeof localStorage !== 'undefined' ? localStorage.getItem('drishtikon_doctor_name') : null) || 'Treating Clinician';
     const newAppt: Appointment = {
-      id: `APT-${Date.now().toString().slice(-4)}`,
+      appointmentId: `APT-${Date.now().toString().slice(-4)}`,
       patientId,
       doctorName: doc,
+      appointmentDate: date,
+      appointmentTime: time,
       date,
       time,
       type: 'Teleconsultation',

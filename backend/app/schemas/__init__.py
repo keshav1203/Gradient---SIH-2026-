@@ -12,6 +12,8 @@ from backend.app.schemas.screening import (
     QualityAssessmentInfo
 )
 
+from backend.app.schemas.appointment import AppointmentCreate, AppointmentOut
+
 __all__ = [
     "PatientBase",
     "PatientCreate",
@@ -26,5 +28,7 @@ __all__ = [
     "ClinicianReviewIn",
     "ClinicianReviewOut",
     "DashboardMetricsOut",
-    "QualityAssessmentInfo"
+    "QualityAssessmentInfo",
+    "AppointmentCreate",
+    "AppointmentOut"
 ]

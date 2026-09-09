@@ -6,6 +6,7 @@ export type DoctorTab =
   | 'upload-images'
   | 'approve-reports'
   | 'reports'
+  | 'consultations'
   | 'help'
   | 'settings'
   | 'ai-analysis';
@@ -170,14 +171,33 @@ export interface CareGuideline {
 }
 
 export interface Appointment {
-  id: string;
+  id?: number | string;
+  appointmentId: string;
   patientId: string;
-  doctorName: string;
-  date: string;
-  time: string;
-  type: 'Teleconsultation' | 'In-Person Examination';
-  status: 'Confirmed' | 'Pending' | 'Completed';
+  patientName?: string;
+  patientAge?: number;
+  patientGender?: string;
+  patientPhone?: string;
+  latestScreeningId?: string;
+  doctorId?: string;
+  doctorName?: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  reason?: string;
+  status: string;
+  type?: string;
+  date?: string;
+  time?: string;
+  createdAt?: string;
 }
+
+export interface BookAppointmentPayload {
+  doctorId: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  reason?: string;
+}
+
 
 export interface AssistantMessage {
   id: string;
